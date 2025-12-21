@@ -1,7 +1,9 @@
 package com.example.client
 
+import com.example.config.AppConfig
 import com.example.models.*
 import com.example.services.AIAnalysisService
+import com.example.services.DatabaseService
 import com.example.services.ImageService
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -162,6 +164,23 @@ fun Route.imageRoutes() {
             val processingTime = System.currentTimeMillis() - startTime
             logger.info("Smart analysis completed in ${processingTime}ms for ${request.filename}")
 
+            // Sonuçları veritabanına kaydet
+            val savedId = DatabaseService.saveAnalysisResult(
+                filename = request.filename,
+                deviceId = null,
+                location = null,
+                basicAnalysis = analysisResult.basicAnalysis,
+                vehicleDetection = analysisResult.vehicleDetection,
+                crowdAnalysis = analysisResult.crowdAnalysis,
+                airQuality = analysisResult.airQualityEstimate,
+                trafficAnalysis = analysisResult.trafficAnalysis,
+                processingTimeMs = processingTime
+            )
+
+            if (savedId != null) {
+                logger.info("Analysis saved to database with ID: $savedId")
+            }
+
             call.respond(
                 SmartAnalysisResponse(
                     success = true,
@@ -261,6 +280,92 @@ fun Route.imageRoutes() {
             call.respond(mapOf("success" to true, "trafficAnalysis" to result))
         } catch (e: Exception) {
             call.respond(HttpStatusCode.BadRequest, ErrorResponse(e.message ?: "Error"))
+        }
+    }
+
+    // ==================== VERİTABANI SORGULAMA ENDPOINTLERİ ====================
+
+    // Son kayıtları getir
+    get("/records") {
+        try {
+            val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 100
+            val records = DatabaseService.getRecentRecords(limit)
+            call.respond(mapOf("success" to true, "count" to records.size, "records" to records))
+        } catch (e: Exception) {
+            call.respond(HttpStatusCode.InternalServerError, ErrorResponse(e.message ?: "Error"))
+        }
+    }
+
+    // İstatistikleri getir
+    get("/statistics") {
+        try {
+            val hours = call.request.queryParameters["hours"]?.toIntOrNull() ?: 24
+            val stats = DatabaseService.getStatistics(hours)
+            call.respond(mapOf("success" to true, "period_hours" to hours, "statistics" to stats))
+        } catch (e: Exception) {
+            call.respond(HttpStatusCode.InternalServerError, ErrorResponse(e.message ?: "Error"))
+        }
+    }
+
+
+    // Test endpoint - küçük bir test görüntüsü ile analiz yapar
+    get("/test-analyze") {
+        val startTime = System.currentTimeMillis()
+        try {
+            // 10x10 piksel kırmızı bir test görüntüsü oluştur
+            val testImage = java.awt.image.BufferedImage(100, 100, java.awt.image.BufferedImage.TYPE_INT_RGB)
+            val graphics = testImage.createGraphics()
+            // Mavi gökyüzü
+            graphics.color = java.awt.Color(135, 206, 235)
+            graphics.fillRect(0, 0, 100, 33)
+            // Yeşil ağaçlar
+            graphics.color = java.awt.Color(34, 139, 34)
+            graphics.fillRect(0, 33, 100, 33)
+            // Gri yol
+            graphics.color = java.awt.Color(128, 128, 128)
+            graphics.fillRect(0, 66, 100, 34)
+            // Kırmızı "araç"
+            graphics.color = java.awt.Color(255, 0, 0)
+            graphics.fillRect(40, 75, 20, 10)
+            graphics.dispose()
+
+            // Analiz yap
+            val analysisResult = AIAnalysisService.analyzeImage(testImage)
+            val processingTime = System.currentTimeMillis() - startTime
+
+            // Veritabanına kaydet
+            val savedId = DatabaseService.saveAnalysisResult(
+                filename = "test-image.png",
+                deviceId = "test-device",
+                location = "test-location",
+                basicAnalysis = analysisResult.basicAnalysis,
+                vehicleDetection = analysisResult.vehicleDetection,
+                crowdAnalysis = analysisResult.crowdAnalysis,
+                airQuality = analysisResult.airQualityEstimate,
+                trafficAnalysis = analysisResult.trafficAnalysis,
+                processingTimeMs = processingTime
+            )
+
+            call.respond(TestAnalyzeResponse(
+                success = true,
+                message = "Test analizi tamamlandı",
+                savedToDatabase = savedId != null,
+                databaseId = savedId,
+                databaseConnected = DatabaseService.isReady(),
+                basicAnalysis = analysisResult.basicAnalysis,
+                vehicleDetection = analysisResult.vehicleDetection,
+                crowdAnalysis = analysisResult.crowdAnalysis,
+                airQuality = analysisResult.airQualityEstimate,
+                trafficAnalysis = analysisResult.trafficAnalysis,
+                processingTimeMs = processingTime
+            ))
+        } catch (e: Exception) {
+            logger.error("Test analyze error: ${e.message}", e)
+            call.respond(HttpStatusCode.InternalServerError, TestAnalyzeResponse(
+                success = false,
+                error = e.message ?: "Unknown error",
+                databaseConnected = DatabaseService.isReady()
+            ))
         }
     }
 }

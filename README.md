@@ -16,6 +16,11 @@ Nasıl çalıştırılır (geliştirici makinesi):
 ./gradlew build
 # docker-compose ile çalıştır
 docker-compose up --build
+docker-compose up -d --build // working in background
+
+$bytes = [IO.File]::ReadAllBytes("C:\Users\Yunus\Desktop\indir.jpg") 
+$base64 = [Convert]::ToBase64String($bytes)
+$base64 | Set-Clipboard
 ```
 
 3. Sağlık kontrolü:
@@ -29,10 +34,14 @@ Content-Type: application/json
 
 ```json
 {
-  "deviceId": "device-1",
-  "timestamp": 1690000000000,
-  "metrics": { "noise": 72.3, "pm25": 12.1 }
+  "imageBase64": "CTRL+V İLE YAPIŞTIR",
+  "filename": "otobus.jpg",
+  "enableVehicleDetection": true,
+  "enableCrowdAnalysis": true,
+  "enableAirQuality": true,
+  "enableTrafficAnalysis": true
 }
+
 ```
 
 

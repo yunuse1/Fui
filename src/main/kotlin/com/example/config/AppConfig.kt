@@ -13,5 +13,12 @@ object AppConfig {
         const val ENGINE_HEADER = "X-Engine"
         const val ENGINE_VALUE = "Ktor"
     }
+
+    object Storage {
+        // Local-first: Veriler cihazda kalır
+        const val DATA_DIR = "data"
+        const val DB_FILE = "fui_local.db"
+        const val PRIVACY_MODE = true  // Veriler sunucuya gönderilmez
+    }
 }
 

@@ -1,4 +1,3 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("jvm") version "2.0.0"
@@ -45,6 +44,13 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 
+    // Database - Exposed ORM + SQLite (Local-first, no server dependency)
+    implementation("org.jetbrains.exposed:exposed-core:0.44.1")
+    implementation("org.jetbrains.exposed:exposed-dao:0.44.1")
+    implementation("org.jetbrains.exposed:exposed-jdbc:0.44.1")
+    implementation("org.jetbrains.exposed:exposed-java-time:0.44.1")
+    implementation("org.xerial:sqlite-jdbc:3.44.1.0")  // SQLite - local file-based DB
+
     testImplementation(kotlin("test"))
 }
 
@@ -57,8 +63,8 @@ java {
     targetCompatibility = JavaVersion.VERSION_21
 }
 
-tasks.withType<KotlinCompile> {
-    kotlinOptions.jvmTarget = "21"
+kotlin {
+    jvmToolchain(21)
 }
 
 tasks.withType<JavaCompile> {

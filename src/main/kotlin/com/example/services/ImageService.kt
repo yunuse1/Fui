@@ -9,7 +9,9 @@ import javax.imageio.ImageIO
 
 object ImageService {
 
-
+    /**
+     * Base64 encoded string'i BufferedImage'a dönüştürür
+     */
     fun decodeBase64Image(base64String: String): BufferedImage? {
         return try {
             val imageBytes = Base64.getDecoder().decode(base64String)
@@ -20,7 +22,9 @@ object ImageService {
         }
     }
 
-
+    /**
+     * Görüntüyü analiz eder ve sonuçları döndürür
+     */
     fun analyzeImage(img: BufferedImage): ImageAnalysisResult {
         val w = img.width
         val h = img.height
@@ -71,11 +75,16 @@ object ImageService {
         )
     }
 
+    /**
+     * Görüntü boyutlarını kontrol eder
+     */
     fun validateImageSize(img: BufferedImage, maxWidth: Int = 4096, maxHeight: Int = 4096): Boolean {
         return img.width <= maxWidth && img.height <= maxHeight
     }
 
-
+    /**
+     * Görüntünün pixel sayısını hesaplar
+     */
     fun getPixelCount(img: BufferedImage): Long {
         return img.width.toLong() * img.height.toLong()
     }
