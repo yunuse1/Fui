@@ -71,6 +71,8 @@ data class ServerInfoResponse(
 data class SmartAnalysisRequest(
     val imageBase64: String,
     val filename: String = "unknown",
+    val deviceId: String? = null,
+    val location: String? = null,
     val enableVehicleDetection: Boolean = true,
     val enableCrowdAnalysis: Boolean = true,
     val enableAirQuality: Boolean = true,

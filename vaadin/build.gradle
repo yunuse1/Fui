@@ -1,0 +1,14 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm'
+    id 'com.vaadin' apply false
+    id 'application'
+}
+
+dependencies {
+    implementation project(':common')
+    implementation 'com.vaadin:vaadin-core:24.1.12'
+}
+
+application {
+    mainClass = 'com.example.vaadin.VaadinApplicationKt'
+}

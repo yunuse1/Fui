@@ -5,6 +5,7 @@ import com.example.plugins.configurePlugins
 import com.example.client.healthRoutes
 import com.example.client.imageRoutes
 import com.example.client.ingestRoutes
+import com.example.client.cameraRoutes
 import com.example.services.DatabaseService
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -61,25 +62,19 @@ fun Application.configureRouting() {
         // Görüntü analiz endpoint'leri
         imageRoutes()
 
+        // Kamera polling endpoint'leri
+        cameraRoutes()
+
         // Kök dizine test-analyze endpointi (shortcut)
         get("/test-analyze") {
-            // Aynı işlemleri imageRoutes içindekiyle yap
+            // Görüntü URL'sinden analiz yap
             val startTime = System.currentTimeMillis()
             try {
-                val testImage = java.awt.image.BufferedImage(100, 100, java.awt.image.BufferedImage.TYPE_INT_RGB)
-                val graphics = testImage.createGraphics()
-                graphics.color = java.awt.Color(135, 206, 235)
-                graphics.fillRect(0, 0, 100, 33)
-                graphics.color = java.awt.Color(34, 139, 34)
-                graphics.fillRect(0, 33, 100, 67)
-                graphics.color = java.awt.Color(139, 69, 19)
-                graphics.fillRect(45, 50, 10, 30)
-                graphics.color = java.awt.Color(0, 128, 0)
-                graphics.fillOval(35, 35, 30, 30)
-                graphics.dispose()
-                val result = com.example.services.AIAnalysisService.analyzeImage(testImage)
+                val cameraUrl = "https://images.wsdot.wa.gov/nw/005vc13410.jpg"
+                val image = javax.imageio.ImageIO.read(java.net.URL(cameraUrl))
+                val result = com.example.services.AIAnalysisService.analyzeImage(image)
                 val elapsed = System.currentTimeMillis() - startTime
-                call.respond(mapOf("success" to true, "analysis" to result, "elapsed_ms" to elapsed))
+                call.respond(mapOf("success" to true, "analysis" to result, "elapsed_ms" to elapsed, "camera_url" to cameraUrl))
             } catch (e: Exception) {
                 call.respond(io.ktor.http.HttpStatusCode.InternalServerError, mapOf("success" to false, "error" to (e.message ?: "Error")))
             }

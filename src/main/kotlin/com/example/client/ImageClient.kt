@@ -5,6 +5,7 @@ import com.example.models.*
 import com.example.services.AIAnalysisService
 import com.example.services.DatabaseService
 import com.example.services.ImageService
+import com.example.services.CameraPollingService
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -167,8 +168,8 @@ fun Route.imageRoutes() {
             // Sonuçları veritabanına kaydet
             val savedId = DatabaseService.saveAnalysisResult(
                 filename = request.filename,
-                deviceId = null,
-                location = null,
+                deviceId = request.deviceId,
+                location = request.location,
                 basicAnalysis = analysisResult.basicAnalysis,
                 vehicleDetection = analysisResult.vehicleDetection,
                 crowdAnalysis = analysisResult.crowdAnalysis,
@@ -370,3 +371,86 @@ fun Route.imageRoutes() {
     }
 }
 
+fun Route.cameraRoutes() {
+    route("/camera") {
+        post("/start") {
+            try {
+                val request = call.receive<CameraStartRequest>()
+                val cameraUrl = request.cameraUrl ?: "https://www.earthcam.com/public/cam-images/westsidepavilion.jpg" // Default bus stop camera
+                val sampleRateMs = request.sampleRateMs ?: 5000L
+
+                val started = CameraPollingService.start(cameraUrl, sampleRateMs)
+                if (started) {
+                    call.respond(CameraResponse(success = true, message = "Camera polling started for $cameraUrl"))
+                } else {
+                    call.respond(HttpStatusCode.Conflict, CameraResponse(success = false, message = "Camera polling already running"))
+                }
+            } catch (e: Exception) {
+                logger.error("Error starting camera: ${e.message}", e)
+                call.respond(HttpStatusCode.BadRequest, CameraResponse(success = false, message = e.message ?: "Unknown error"))
+            }
+        }
+
+        post("/stop") {
+            try {
+                val stopped = CameraPollingService.stop()
+                if (stopped) {
+                    call.respond(CameraResponse(success = true, message = "Camera polling stopped"))
+                } else {
+                    call.respond(HttpStatusCode.Conflict, CameraResponse(success = false, message = "Camera polling not running"))
+                }
+            } catch (e: Exception) {
+                logger.error("Error stopping camera: ${e.message}", e)
+                call.respond(HttpStatusCode.InternalServerError, CameraResponse(success = false, message = e.message ?: "Unknown error"))
+            }
+        }
+
+        get("/status") {
+            try {
+                val status = CameraPollingService.getStatus()
+                call.respond(CameraStatusResponse(
+                    success = true,
+                    running = status.running,
+                    lastEstimatedPeople = status.lastEstimatedPeople,
+                    lastUpdatedMs = status.lastUpdatedMs
+                ))
+            } catch (e: Exception) {
+                logger.error("Error getting camera status: ${e.message}", e)
+                call.respond(HttpStatusCode.InternalServerError, CameraStatusResponse(success = false, error = e.message ?: "Unknown error"))
+            }
+        }
+
+        get("/preview") {
+            try {
+                val bytes = CameraPollingService.getPreviewBytes()
+                if (bytes != null) {
+                    call.respondBytes(bytes, io.ktor.http.ContentType.Image.JPEG)
+                } else {
+                    call.respond(HttpStatusCode.NoContent, "No preview available")
+                }
+            } catch (e: Exception) {
+                logger.error("Error getting camera preview: ${e.message}", e)
+                call.respond(HttpStatusCode.InternalServerError, "Error retrieving preview")
+            }
+        }
+    }
+}
+
+// Camera API models
+data class CameraStartRequest(
+    val cameraUrl: String? = null,
+    val sampleRateMs: Long? = null
+)
+
+data class CameraResponse(
+    val success: Boolean,
+    val message: String
+)
+
+data class CameraStatusResponse(
+    val success: Boolean,
+    val running: Boolean? = null,
+    val lastEstimatedPeople: Int? = null,
+    val lastUpdatedMs: Long? = null,
+    val error: String? = null
+)

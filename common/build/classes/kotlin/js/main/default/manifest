@@ -1,0 +1,10 @@
+abi_version=1.8.0
+builtins_platform=JS
+compiler_version=2.0.0
+depends=org.jetbrains.kotlinx\:kotlinx-serialization-core org.jetbrains.kotlin\:kotlin-dom-api-compat com.russhwolf\:multiplatform-settings-coroutines com.russhwolf\:multiplatform-settings org.jetbrains.kotlinx\:kotlinx-coroutines-core org.jetbrains.kotlinx\:atomicfu kotlin org.jetbrains.kotlin\:kotlinx-atomicfu-runtime
+ir_signature_versions=1,2
+jsOutputName=fui-project-common
+metadata_version=1.4.1
+serializedIrFileFingerprints=22w2eng1g9kny.1wl6fgrhqqnr4
+serializedKlibFingerprint=281kdbp5o5rez.170ffbt66mo9u
+unique_name=fui-project\:common

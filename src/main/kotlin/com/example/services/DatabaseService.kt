@@ -14,7 +14,7 @@ private val logger = LoggerFactory.getLogger("DatabaseService")
 /**
  * SQLite Veritabanı tabloları - Local-first, privacy-focused
  */
-object AnalysisRecords : Table("analysis_records") {
+object AnalysisRecords : Table("analysis_record") {
     val id = integer("id").autoIncrement()
     val timestamp = varchar("timestamp", 50)  // ISO format string
     val filename = varchar("filename", 255)

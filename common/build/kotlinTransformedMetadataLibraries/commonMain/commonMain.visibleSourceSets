@@ -1,0 +1,4 @@
+module org.jetbrains.kotlin:kotlin-stdlib:2.0.0 => commonMain
+module org.jetbrains.kotlinx:kotlinx-serialization-core:1.6.0 => commonMain
+module com.russhwolf:multiplatform-settings:1.0.0 => commonMain
+module com.russhwolf:multiplatform-settings-coroutines:1.0.0 => commonMain
