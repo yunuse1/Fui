@@ -45,7 +45,8 @@ Desktop.ini
 .gradle/
 build/
 **/build/
-!gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
 
 ### Local files ###
 local.properties
