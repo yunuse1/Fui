@@ -7,15 +7,15 @@ import kotlin.math.abs
 import kotlin.math.sqrt
 
 /**
- * AI tabanlı görüntü analiz servisi
- * Görüntü işleme teknikleri ile araç, kalabalık, hava kalitesi ve trafik analizi yapar
+ * AI-based image analysis service
+ * Analyzes vehicles, crowds, air quality and traffic using image processing techniques
  */
 object AIAnalysisService {
 
-    // ==================== ANA ANALİZ FONKSİYONU ====================
+    // ==================== MAIN ANALYSIS FUNCTION ====================
 
     /**
-     * Görüntüyü tüm AI modülleri ile analiz eder
+     * Analyzes image with all AI modules
      */
     fun analyzeImage(
         img: BufferedImage,
@@ -35,17 +35,17 @@ object AIAnalysisService {
         )
     }
 
-    // ==================== ARAÇ TESPİTİ ====================
+    // ==================== VEHICLE DETECTION ====================
 
     /**
-     * Görüntüde araç tespiti yapar
-     * Edge detection ve renk analizi kullanarak araç benzeri bölgeleri tespit eder
+     * Detects vehicles in the image
+     * Uses edge detection and color analysis to identify vehicle-like regions
      */
     fun detectVehicles(img: BufferedImage): VehicleDetectionResult {
         val w = img.width
         val h = img.height
 
-        // Görüntüyü analiz için bölgelere ayır
+        // Divide image into regions for analysis
         val regions = detectObjectRegions(img)
 
         // Araç benzeri bölgeleri filtrele (boyut ve renk bazlı)
@@ -98,7 +98,7 @@ object AIAnalysisService {
             else -> "very_high"
         }
 
-        // Güven skoru: Tespit edilen bölge sayısı ve kalitesine göre
+        // Confidence score: Based on number and quality of detected regions
         val confidence = (0.3 + (vehicleLikeRegions.size.coerceAtMost(20) * 0.035)).coerceAtMost(0.95)
 
         return VehicleDetectionResult(
@@ -113,10 +113,10 @@ object AIAnalysisService {
         )
     }
 
-    // ==================== KALABALIK ANALİZİ ====================
+    // ==================== CROWD ANALYSIS ====================
 
     /**
-     * Görüntüdeki kalabalık/insan yoğunluğunu analiz eder
+     * Analyzes crowd/human density in the image
      */
     fun analyzeCrowd(img: BufferedImage): CrowdAnalysisResult {
         val w = img.width
@@ -181,11 +181,11 @@ object AIAnalysisService {
         )
     }
 
-    // ==================== HAVA KALİTESİ TAHMİNİ ====================
+    // ==================== AIR QUALITY ESTIMATION ====================
 
     /**
-     * Görüntüden hava kalitesini tahmin eder
-     * Görünürlük, sis, duman gibi faktörleri analiz eder
+     * Estimates air quality from the image
+     * Analyzes visibility, fog, smoke and other factors
      */
     fun estimateAirQuality(img: BufferedImage): AirQualityResult {
         val w = img.width
@@ -273,13 +273,13 @@ object AIAnalysisService {
         )
     }
 
-    // ==================== TRAFİK ANALİZİ ====================
+    // ==================== TRAFFIC ANALYSIS ====================
 
     /**
-     * Görüntüdeki trafik durumunu analiz eder
+     * Analyzes traffic conditions in the image
      */
     fun analyzeTraffic(img: BufferedImage): TrafficAnalysisResult {
-        // Önce araç tespiti yap
+        // First detect vehicles
         val vehicleResult = detectVehicles(img)
 
         val w = img.width
@@ -303,7 +303,7 @@ object AIAnalysisService {
                 // Gri tonları (yol yüzeyi)
                 if (maxDiff < 40) {
                     roadPixels++
-                    // Koyu gri = boş yol, açık gri/renkli = araç
+                    // Dark gray = empty road, light gray/colored = vehicle
                     if (brightness > 80 || maxDiff > 20) {
                         occupiedPixels++
                     }
@@ -358,10 +358,10 @@ object AIAnalysisService {
         )
     }
 
-    // ==================== YARDIMCI FONKSİYONLAR ====================
+    // ==================== HELPER FUNCTIONS ====================
 
     /**
-     * Görüntüdeki nesne bölgelerini tespit eder (basit edge-based segmentation)
+     * Detects object regions in the image (simple edge-based segmentation)
      */
     private fun detectObjectRegions(img: BufferedImage): List<ObjectRegion> {
         val w = img.width
@@ -521,7 +521,7 @@ object AIAnalysisService {
     }
 
     /**
-     * Görüntü kontrastını hesaplar
+     * Calculates image contrast
      */
     private fun calculateImageContrast(img: BufferedImage): Double {
         val w = img.width
@@ -542,18 +542,18 @@ object AIAnalysisService {
         val variance = brightnesses.map { (it - mean) * (it - mean) }.average()
         val stdDev = sqrt(variance)
 
-        // Normalize: yüksek standart sapma = yüksek kontrast
+        // Normalize: high standard deviation = high contrast
         return (stdDev / 128.0).coerceIn(0.0, 1.0)
     }
 
     /**
-     * İki renk arasındaki farkı hesaplar
+     * Calculates difference between two colors
      */
     private fun colorDifference(c1: Color, c2: Color): Int {
         return abs(c1.red - c2.red) + abs(c1.green - c2.green) + abs(c1.blue - c2.blue)
     }
 
-    // ==================== VERİ SINIFLARI ====================
+    // ==================== DATA CLASSES ====================
 
     data class ObjectRegion(
         val x: Int,

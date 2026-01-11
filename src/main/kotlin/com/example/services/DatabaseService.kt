@@ -115,17 +115,17 @@ object DatabaseService {
     fun isReady(): Boolean = initialized
 
     /**
-     * Veritabanı tipini döner
+     * Returns database type
      */
     fun getDbType(): String = "SQLite (Local)"
 
     /**
-     * Veritabanı yolunu döner
+     * Returns database path
      */
     fun getDbPath(): String = File(dbPath).absolutePath
 
     /**
-     * Analiz sonucunu local veritabanına kaydeder
+     * Saves analysis result to local database
      */
     fun saveAnalysisResult(
         filename: String,

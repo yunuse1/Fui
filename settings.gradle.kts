@@ -10,9 +10,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = uri("https://jitpack.io") } // isteğe bağlı ek repo
+        maven { url = uri("https://jitpack.io") }
     }
 }
 
 rootProject.name = "fui-project"
-include(":androidApp", ":shared", ":server", ":webApp")
+include(":androidApp", ":shared", ":webApp")

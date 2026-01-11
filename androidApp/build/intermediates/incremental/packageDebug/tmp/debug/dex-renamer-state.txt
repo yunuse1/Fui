@@ -1,4 +1,4 @@
-#Sun Jan 11 13:37:00 TRT 2026
+#Sun Jan 11 14:09:40 TRT 2026
 base.0=C\:\\Users\\Yunus\\SchoolProjects\\Fui\\androidApp\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes.dex
 base.1=C\:\\Users\\Yunus\\SchoolProjects\\Fui\\androidApp\\build\\intermediates\\dex\\debug\\mergeLibDexDebug\\6\\classes.dex
 base.2=C\:\\Users\\Yunus\\SchoolProjects\\Fui\\androidApp\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\0\\classes.dex

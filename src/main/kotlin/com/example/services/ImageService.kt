@@ -10,7 +10,7 @@ import javax.imageio.ImageIO
 object ImageService {
 
     /**
-     * Base64 encoded string'i BufferedImage'a dönüştürür
+     * Converts Base64 encoded string to BufferedImage
      */
     fun decodeBase64Image(base64String: String): BufferedImage? {
         return try {
@@ -23,7 +23,7 @@ object ImageService {
     }
 
     /**
-     * Görüntüyü analiz eder ve sonuçları döndürür
+     * Analyzes the image and returns results
      */
     fun analyzeImage(img: BufferedImage): ImageAnalysisResult {
         val w = img.width
@@ -76,14 +76,14 @@ object ImageService {
     }
 
     /**
-     * Görüntü boyutlarını kontrol eder
+     * Validates image dimensions
      */
     fun validateImageSize(img: BufferedImage, maxWidth: Int = 4096, maxHeight: Int = 4096): Boolean {
         return img.width <= maxWidth && img.height <= maxHeight
     }
 
     /**
-     * Görüntünün pixel sayısını hesaplar
+     * Calculates total pixel count of the image
      */
     fun getPixelCount(img: BufferedImage): Long {
         return img.width.toLong() * img.height.toLong()

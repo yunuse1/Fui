@@ -19,18 +19,18 @@ import java.time.format.DateTimeFormatter
 import javax.imageio.ImageIO
 
 @Route("")
-@PageTitle("FUI - Görüntü Analiz")
+@PageTitle("FUI - Image Analysis")
 class MainView : VerticalLayout() {
 
     private val analysisService = CameraAnalysisService()
 
-    // UI Components
     private val imageContainer = Div()
+    private val fileInfoContainer = Div()  // Custom file info with remove button
     private val vehicleCount = Span("0")
     private val peopleCount = Span("0")
-    private val trafficLevel = Span("Bekleniyor...")
-    private val crowdLevel = Span("Bekleniyor...")
-    private val statusLabel = Span("📸 Bir fotoğraf yükleyin")
+    private val trafficLevel = Span("Waiting...")
+    private val crowdLevel = Span("Waiting...")
+    private val statusLabel = Span("📸 Upload an image")
     private val resultArea = Pre()
 
     private var uploadedImageBytes: ByteArray? = null
@@ -60,7 +60,7 @@ class MainView : VerticalLayout() {
         title.style.set("margin", "0")
         title.style.set("font-size", "2rem")
 
-        val subtitle = Paragraph("Trafik ve Kalabalık Analiz Sistemi")
+        val subtitle = Paragraph("Traffic and Crowd Analysis System")
         subtitle.style.set("color", "#888888")
         subtitle.style.set("margin", "5px 0 20px 0")
 
@@ -75,13 +75,11 @@ class MainView : VerticalLayout() {
         content.style.set("gap", "20px")
         content.justifyContentMode = FlexComponent.JustifyContentMode.CENTER
 
-        // Sol Panel - Görüntü ve Kontroller
         val leftPanel = createLeftPanel()
         leftPanel.style.set("flex", "1")
         leftPanel.style.set("min-width", "350px")
         leftPanel.style.set("max-width", "500px")
 
-        // Sağ Panel - Sonuçlar
         val rightPanel = createRightPanel()
         rightPanel.style.set("flex", "1")
         rightPanel.style.set("min-width", "350px")
@@ -97,7 +95,6 @@ class MainView : VerticalLayout() {
         panel.style.set("border-radius", "12px")
         panel.style.set("padding", "20px")
 
-        // Görüntü Alanı
         imageContainer.setWidthFull()
         imageContainer.style.set("height", "250px")
         imageContainer.style.set("background", "#1a1a2e")
@@ -107,12 +104,11 @@ class MainView : VerticalLayout() {
         imageContainer.style.set("justify-content", "center")
         imageContainer.style.set("overflow", "hidden")
 
-        val placeholder = Span("📷 Fotoğraf yükleyin")
+        val placeholder = Span("📷 Upload an image")
         placeholder.style.set("color", "#666666")
         placeholder.style.set("font-size", "18px")
         imageContainer.add(placeholder)
 
-        // Upload Bileşeni
         val buffer = MemoryBuffer()
         val upload = Upload(buffer)
         upload.setAcceptedFileTypes("image/jpeg", "image/png", "image/gif", "image/webp")
@@ -120,51 +116,63 @@ class MainView : VerticalLayout() {
         upload.setWidthFull()
         upload.style.set("margin-top", "15px")
 
+        // Hide the default file list - we'll show our own
+        upload.element.executeJs("""
+            this.style.setProperty('--vaadin-upload-file-list-display', 'none');
+            const style = document.createElement('style');
+            style.textContent = 'vaadin-upload-file { display: none !important; }';
+            document.head.appendChild(style);
+        """)
+
+        // Custom file info container (hidden initially)
+        fileInfoContainer.setWidthFull()
+        fileInfoContainer.style.set("display", "none")
+        fileInfoContainer.style.set("margin-top", "10px")
+
         upload.addSucceededListener { event ->
             try {
                 val inputStream = buffer.inputStream
                 uploadedImageBytes = inputStream.readAllBytes()
                 displayUploadedImage()
-                statusLabel.text = "✅ Görüntü yüklendi: ${event.fileName}"
-                // Otomatik analiz
+                showFileInfo(event.fileName)
+                statusLabel.text = "✅ Image loaded: ${event.fileName}"
                 performAnalysis()
             } catch (e: Exception) {
-                Notification.show("Yükleme hatası: ${e.message}", 3000, Notification.Position.MIDDLE)
+                Notification.show("Upload error: ${e.message}", 3000, Notification.Position.MIDDLE)
             }
         }
 
         upload.addFailedListener {
-            Notification.show("Yükleme başarısız!", 3000, Notification.Position.MIDDLE)
+            Notification.show("Upload failed!", 3000, Notification.Position.MIDDLE)
         }
 
-        // Butonlar
         val buttonRow = HorizontalLayout()
         buttonRow.setWidthFull()
         buttonRow.justifyContentMode = FlexComponent.JustifyContentMode.CENTER
         buttonRow.style.set("gap", "10px")
         buttonRow.style.set("margin-top", "15px")
 
-        val analyzeButton = Button("🔍 ANALİZ ET") { performAnalysis() }
+        val analyzeButton = Button("🔍 ANALYZE") { performAnalysis() }
         analyzeButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
         analyzeButton.style.set("background", "#4CAF50")
         analyzeButton.style.set("color", "white")
 
-        val clearButton = Button("🗑️ Temizle") { clearAll() }
+        val clearButton = Button("🗑️ Clear") { clearAll() }
         clearButton.style.set("background", "#f44336")
         clearButton.style.set("color", "white")
 
         buttonRow.add(analyzeButton, clearButton)
 
-        // Durum
         statusLabel.style.set("color", "#888888")
         statusLabel.style.set("text-align", "center")
         statusLabel.style.set("display", "block")
         statusLabel.style.set("margin-top", "10px")
 
         panel.add(
-            H3("📸 Görüntü Yükle").apply { style.set("color", "#ffffff"); style.set("margin", "0 0 15px 0") },
+            H3("📸 Upload Image").apply { style.set("color", "#ffffff"); style.set("margin", "0 0 15px 0") },
             imageContainer,
             upload,
+            fileInfoContainer,
             buttonRow,
             statusLabel
         )
@@ -178,13 +186,12 @@ class MainView : VerticalLayout() {
         panel.style.set("border-radius", "12px")
         panel.style.set("padding", "20px")
 
-        // İstatistik Kartları
         val statsRow1 = HorizontalLayout()
         statsRow1.setWidthFull()
         statsRow1.style.set("gap", "10px")
 
-        val vehicleCard = createStatCard("🚗 ARAÇ", vehicleCount, "#4CAF50")
-        val peopleCard = createStatCard("👥 İNSAN", peopleCount, "#2196F3")
+        val vehicleCard = createStatCard("🚗 VEHICLES", vehicleCount, "#4CAF50")
+        val peopleCard = createStatCard("👥 PEOPLE", peopleCount, "#2196F3")
 
         statsRow1.add(vehicleCard, peopleCard)
 
@@ -193,13 +200,12 @@ class MainView : VerticalLayout() {
         statsRow2.style.set("gap", "10px")
         statsRow2.style.set("margin-top", "10px")
 
-        val trafficCard = createStatCard("🚦 TRAFİK", trafficLevel, "#FF9800")
-        val crowdCard = createStatCard("👥 KALABALIK", crowdLevel, "#9C27B0")
+        val trafficCard = createStatCard("🚦 TRAFFIC", trafficLevel, "#FF9800")
+        val crowdCard = createStatCard("👥 CROWD", crowdLevel, "#9C27B0")
 
         statsRow2.add(trafficCard, crowdCard)
 
-        // Detaylı Rapor
-        val reportTitle = H3("📊 Detaylı Rapor")
+        val reportTitle = H3("📊 Detailed Report")
         reportTitle.style.set("color", "#ffffff")
         reportTitle.style.set("margin", "20px 0 10px 0")
 
@@ -214,10 +220,10 @@ class MainView : VerticalLayout() {
         resultArea.style.set("max-height", "300px")
         resultArea.style.set("overflow-y", "auto")
         resultArea.setWidthFull()
-        resultArea.text = "Analiz sonuçları burada görünecek..."
+        resultArea.text = "Analysis results will appear here..."
 
         panel.add(
-            H3("📈 Analiz Sonuçları").apply { style.set("color", "#ffffff"); style.set("margin", "0 0 15px 0") },
+            H3("📈 Analysis Results").apply { style.set("color", "#ffffff"); style.set("margin", "0 0 15px 0") },
             statsRow1,
             statsRow2,
             reportTitle,
@@ -258,7 +264,7 @@ class MainView : VerticalLayout() {
         footer.style.set("color", "#666666")
         footer.style.set("font-size", "12px")
 
-        footer.text = "🔒 Veriler cihazda işlenir, sunucuya gönderilmez | KotlinConf 2025 Projesi"
+        footer.text = "🔒 Data processed on device, not sent to server | KotlinConf 2025 Project"
         return footer
     }
 
@@ -266,94 +272,149 @@ class MainView : VerticalLayout() {
         imageContainer.removeAll()
 
         uploadedImageBytes?.let { bytes ->
+            // Create a wrapper for image and remove button
+            val wrapper = Div()
+            wrapper.style.set("position", "relative")
+            wrapper.style.set("width", "100%")
+            wrapper.style.set("height", "100%")
+            wrapper.style.set("display", "flex")
+            wrapper.style.set("align-items", "center")
+            wrapper.style.set("justify-content", "center")
+
             val resource = StreamResource("uploaded-image.jpg") { ByteArrayInputStream(bytes) }
-            val image = Image(resource, "Yüklenen görüntü")
+            val image = Image(resource, "Uploaded image")
             image.style.set("max-width", "100%")
             image.style.set("max-height", "100%")
             image.style.set("object-fit", "contain")
-            imageContainer.add(image)
+
+            // Add a prominent remove button on top right corner
+            val removeBtn = Button("✕") { clearAll() }
+            removeBtn.style.set("position", "absolute")
+            removeBtn.style.set("top", "8px")
+            removeBtn.style.set("right", "8px")
+            removeBtn.style.set("width", "40px")
+            removeBtn.style.set("height", "40px")
+            removeBtn.style.set("min-width", "40px")
+            removeBtn.style.set("padding", "0")
+            removeBtn.style.set("background", "#f44336")
+            removeBtn.style.set("color", "white")
+            removeBtn.style.set("border", "none")
+            removeBtn.style.set("border-radius", "8px")
+            removeBtn.style.set("font-size", "20px")
+            removeBtn.style.set("font-weight", "bold")
+            removeBtn.style.set("cursor", "pointer")
+            removeBtn.style.set("box-shadow", "0 2px 8px rgba(0,0,0,0.3)")
+            removeBtn.style.set("z-index", "10")
+            removeBtn.element.setAttribute("title", "Remove image")
+
+            wrapper.add(image, removeBtn)
+            imageContainer.add(wrapper)
         }
     }
 
+    /**
+     * Shows custom file info with prominent remove button
+     */
+    private fun showFileInfo(fileName: String) {
+        fileInfoContainer.removeAll()
+        fileInfoContainer.style.set("display", "flex")
+        fileInfoContainer.style.set("align-items", "center")
+        fileInfoContainer.style.set("justify-content", "space-between")
+        fileInfoContainer.style.set("background", "#1a1a2e")
+        fileInfoContainer.style.set("padding", "12px 16px")
+        fileInfoContainer.style.set("border-radius", "8px")
+
+        // File name with checkmark
+        val fileNameSpan = Span("✓ $fileName")
+        fileNameSpan.style.set("color", "#4CAF50")
+        fileNameSpan.style.set("font-weight", "bold")
+        fileNameSpan.style.set("font-size", "14px")
+
+        // Big red remove button
+        val removeButton = Button("✕ Remove") { clearAll() }
+        removeButton.style.set("background", "#f44336")
+        removeButton.style.set("color", "white")
+        removeButton.style.set("border", "none")
+        removeButton.style.set("border-radius", "6px")
+        removeButton.style.set("padding", "8px 16px")
+        removeButton.style.set("font-size", "14px")
+        removeButton.style.set("font-weight", "bold")
+        removeButton.style.set("cursor", "pointer")
+        removeButton.style.set("min-width", "100px")
+
+        fileInfoContainer.add(fileNameSpan, removeButton)
+    }
+
+    private fun hideFileInfo() {
+        fileInfoContainer.style.set("display", "none")
+        fileInfoContainer.removeAll()
+    }
 
     private fun performAnalysis() {
         val bytes = uploadedImageBytes
         if (bytes == null) {
-            Notification.show("Önce bir görüntü yükleyin!", 3000, Notification.Position.MIDDLE)
+            Notification.show("Please upload an image first!", 3000, Notification.Position.MIDDLE)
             return
         }
 
-        statusLabel.text = "🔄 Analiz ediliyor..."
+        statusLabel.text = "🔄 Analyzing..."
 
         try {
             val inputStream = ByteArrayInputStream(bytes)
             val bufferedImage = ImageIO.read(inputStream)
 
             if (bufferedImage == null) {
-                statusLabel.text = "❌ Görüntü okunamadı"
+                statusLabel.text = "❌ Could not read image"
                 return
             }
 
             val result = analysisService.analyzeImage(bufferedImage)
 
-            // Sonuçları güncelle
             vehicleCount.text = result.vehicleCount.toString()
             peopleCount.text = result.estimatedPeople.toString()
             trafficLevel.text = result.trafficLevel
             crowdLevel.text = result.crowdLevel
 
-            // Renkleri güncelle
             updateLevelColor(trafficLevel, result.trafficLevel)
             updateLevelColor(crowdLevel, result.crowdLevel)
 
-            // Rapor
-            val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))
+            val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm:ss"))
             resultArea.text = """
-══════════════════════════════════
-📊 ANALİZ RAPORU
-══════════════════════════════════
-🕐 $timestamp
-📐 Boyut: ${bufferedImage.width}x${bufferedImage.height}
+📊 ANALYSIS REPORT
+$timestamp | ${bufferedImage.width}x${bufferedImage.height}
 
-──────────────────────────────────
-🚗 ARAÇ ANALİZİ
-──────────────────────────────────
-   Tespit Edilen: ${result.vehicleCount} araç
-   Trafik Durumu: ${result.trafficLevel}
+🚗 VEHICLE ANALYSIS
+   Detected: ${result.vehicleCount} vehicles
+   Traffic: ${result.trafficLevel}
 
-──────────────────────────────────
-👥 KALABALIK ANALİZİ
-──────────────────────────────────
-   Tahmini Kişi: ~${result.estimatedPeople}
-   Kalabalık: ${result.crowdLevel}
+👥 CROWD ANALYSIS
+   Estimated: ~${result.estimatedPeople} people
+   Crowd: ${result.crowdLevel}
 
-──────────────────────────────────
-🌤️ ORTAM ANALİZİ
-──────────────────────────────────
-   Zaman: ${result.timeOfDay}
-   Parlaklık: ${result.brightness}
-   Hava Kalitesi: ${result.airQuality}
+🌤️ ENVIRONMENT
+   Time: ${result.timeOfDay}
+   Brightness: ${result.brightness}
+   Air Quality: ${result.airQuality}
 
-══════════════════════════════════
-✅ Cihazda analiz edildi
-🔒 Veri sunucuya gönderilmedi
-══════════════════════════════════
+✅ Analyzed on device
+🔒 No data sent to server
             """.trimIndent()
 
-            statusLabel.text = "✅ Analiz tamamlandı - $timestamp"
+            statusLabel.text = "✅ Analysis completed - $timestamp"
 
         } catch (e: Exception) {
-            statusLabel.text = "❌ Analiz hatası: ${e.message}"
-            resultArea.text = "Hata: ${e.message}"
+            statusLabel.text = "❌ Analysis error: ${e.message}"
+            resultArea.text = "Error: ${e.message}"
         }
     }
 
     private fun updateLevelColor(span: Span, level: String) {
         val color = when {
-            level.contains("ÇOK YOĞUN") || level.contains("🔴") -> "#F44336"
-            level.contains("YOĞUN") || level.contains("🟠") -> "#FF9800"
-            level.contains("ORTA") || level.contains("🟡") -> "#FFEB3B"
-            level.contains("AZ") || level.contains("HAFİF") || level.contains("🟢") -> "#4CAF50"
+            level.contains("INDOOR") || level.contains("🏛️") -> "#9C27B0"
+            level.contains("VERY HIGH") || level.contains("🔴") -> "#F44336"
+            level.contains("HIGH") || level.contains("🟠") -> "#FF9800"
+            level.contains("MEDIUM") || level.contains("🟡") -> "#FFEB3B"
+            level.contains("LOW") || level.contains("🟢") -> "#4CAF50"
             else -> "#FFFFFF"
         }
         span.style.set("color", color)
@@ -362,20 +423,21 @@ class MainView : VerticalLayout() {
     private fun clearAll() {
         uploadedImageBytes = null
         imageContainer.removeAll()
+        hideFileInfo()
 
-        val placeholder = Span("📷 Fotoğraf yükleyin")
+        val placeholder = Span("📷 Upload an image")
         placeholder.style.set("color", "#666666")
         placeholder.style.set("font-size", "18px")
         imageContainer.add(placeholder)
 
         vehicleCount.text = "0"
         peopleCount.text = "0"
-        trafficLevel.text = "Bekleniyor..."
-        crowdLevel.text = "Bekleniyor..."
-        resultArea.text = "Analiz sonuçları burada görünecek..."
-        statusLabel.text = "📸 Bir fotoğraf yükleyin"
+        trafficLevel.text = "Waiting..."
+        crowdLevel.text = "Waiting..."
+        resultArea.text = "Analysis results will appear here..."
+        statusLabel.text = "📸 Upload an image"
 
-        Notification.show("Temizlendi", 2000, Notification.Position.BOTTOM_CENTER)
+        Notification.show("Cleared", 2000, Notification.Position.BOTTOM_CENTER)
     }
 }
 
