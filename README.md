@@ -18,6 +18,18 @@ Federated Urban Insights (FUI) is a **serverless, privacy-first** application th
 - 🔒 **100% Privacy**: All analysis runs locally on your device
 - 📱 **Cross-Platform**: Works on Android and Web browsers
 
+## 🎯 Use Cases
+
+| Scenario | Application |
+|----------|-------------|
+| 🚌 **Public Transit** | Check bus/metro station crowd levels before leaving |
+| 🛒 **Shopping Malls** | Real-time crowd density at entrances and floors |
+| 🏙️ **Popular Streets** | Tourist areas & famous locations occupancy |
+| 🏟️ **Events & Venues** | Stadium, concert, festival crowd monitoring |
+| 🏥 **Healthcare** | Waiting room occupancy display |
+| 🎓 **Campuses** | Library & cafeteria crowd levels |
+| 🚗 **Parking** | Parking lot occupancy analysis |
+
 ## 🛠️ Technology Stack
 
 | Component | Technology |
