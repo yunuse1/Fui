@@ -32,6 +32,7 @@ class MainView : VerticalLayout() {
     private val crowdLevel = Span("Waiting...")
     private val statusLabel = Span("📸 Upload an image")
     private val resultArea = Pre()
+    private lateinit var upload: Upload  // Upload component reference for reset
 
     private var uploadedImageBytes: ByteArray? = null
 
@@ -110,7 +111,7 @@ class MainView : VerticalLayout() {
         imageContainer.add(placeholder)
 
         val buffer = MemoryBuffer()
-        val upload = Upload(buffer)
+        upload = Upload(buffer)
         upload.setAcceptedFileTypes("image/jpeg", "image/png", "image/gif", "image/webp")
         upload.maxFiles = 1
         upload.setWidthFull()
@@ -426,6 +427,10 @@ $timestamp | ${bufferedImage.width}x${bufferedImage.height}
         uploadedImageBytes = null
         imageContainer.removeAll()
         hideFileInfo()
+
+        // Reset the upload component to allow new uploads
+        upload.clearFileList()
+        upload.element.executeJs("this.files = []")
 
         val placeholder = Span("📷 Upload an image")
         placeholder.style.set("color", "#666666")
