@@ -1,0 +1,22 @@
+# GitHub Linguist - Language Detection Override
+# Mark generated/vendor files to exclude from language statistics
+
+# Exclude Gradle wrapper
+gradle/wrapper/gradle-wrapper.jar linguist-vendored
+gradlew linguist-vendored
+gradlew.bat linguist-vendored
+
+# Exclude build artifacts and generated files
+**/build/** linguist-generated
+**/generated/** linguist-generated
+**/node_modules/** linguist-vendored
+
+# Mark Vaadin frontend generated files
+webApp/frontend/generated/** linguist-generated
+
+# Ensure Kotlin files are detected correctly
+*.kt linguist-language=Kotlin
+*.kts linguist-language=Kotlin
+
+# Explicitly mark languages
+*.java linguist-language=Kotlin
