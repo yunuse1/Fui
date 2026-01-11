@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Arka plan - karanlık -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#1a1a1a"/>
+        </shape>
+    </item>
+
+    <!-- Gökyüzü -->
+    <item android:top="0dp" android:bottom="160dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:startColor="#0d1a2d"
+                android:endColor="#1a3050"
+                android:angle="90"/>
+        </shape>
+    </item>
+
+    <!-- Yol -->
+    <item android:top="120dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#2a2a2a"/>
+        </shape>
+    </item>
+
+    <!-- Orta şerit çizgisi -->
+    <item android:top="180dp" android:bottom="60dp" android:left="155dp" android:right="155dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#666655"/>
+        </shape>
+    </item>
+</layer-list>
+

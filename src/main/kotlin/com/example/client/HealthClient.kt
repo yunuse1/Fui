@@ -40,10 +40,11 @@ fun Route.healthRoutes() {
     // Tüm local verileri sil (GDPR - right to be forgotten)
     delete("/clear-data") {
         val success = DatabaseService.clearAllData()
-        call.respond(mapOf(
-            "success" to success,
-            "message" to if (success) "All local data cleared" else "Failed to clear data"
-        ))
+        call.respond(
+            ServerInfoResponse(
+                message = if (success) "All local data cleared" else "Failed to clear data",
+                version = if (success) "success" else "failure"
+            )
+        )
     }
 }
-

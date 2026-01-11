@@ -1,0 +1,17 @@
+{
+  "frontendFolder": "C:/Users/Yunus/SchoolProjects/Fui/webApp/frontend",
+  "themeFolder": "themes",
+  "themeResourceFolder": "C:/Users/Yunus/SchoolProjects/Fui/webApp/frontend/generated/jar-resources",
+  "staticOutput": "C:/Users/Yunus/SchoolProjects/Fui/webApp/build/classes/META-INF/VAADIN/webapp/VAADIN/static",
+  "generatedFolder": "generated",
+  "statsOutput": "C:\\Users\\Yunus\\SchoolProjects\\Fui\\webApp\\build\\classes\\META-INF\\VAADIN\\config",
+  "frontendBundleOutput": "C:\\Users\\Yunus\\SchoolProjects\\Fui\\webApp\\build\\classes\\META-INF\\VAADIN\\webapp",
+  "devBundleOutput": "C:/Users/Yunus/SchoolProjects/Fui/webApp/build/dev-bundle/webapp",
+  "devBundleStatsOutput": "C:/Users/Yunus/SchoolProjects/Fui/webApp/build/dev-bundle/config",
+  "jarResourcesFolder": "C:/Users/Yunus/SchoolProjects/Fui/webApp/frontend/generated/jar-resources",
+  "themeName": "",
+  "clientServiceWorkerSource": "C:\\Users\\Yunus\\SchoolProjects\\Fui\\webApp\\build\\sw.ts",
+  "pwaEnabled": false,
+  "offlineEnabled": false,
+  "offlinePath": "'offline.html'"
+}

@@ -1,0 +1,76 @@
+/* FUI Traffic Dashboard Styles */
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+.main-view {
+    min-height: 100vh;
+}
+
+.rec-indicator {
+    animation: blink 1s infinite;
+    font-size: 14px;
+}
+
+/* Kartlar için hover efekti */
+.traffic-card:hover,
+.crowd-card:hover,
+.weather-card:hover,
+.air-card:hover,
+.time-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+/* Scrollbar stilleri */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.3);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.5);
+}
+
+/* Buton stilleri */
+.auto-btn {
+    background: linear-gradient(45deg, #ff9800, #ff5722) !important;
+    color: white !important;
+}
+
+/* Input alanları */
+vaadin-text-field {
+    --vaadin-input-field-border-color: rgba(255,255,255,0.2);
+}
+
+vaadin-text-field::part(input-field) {
+    background: rgba(255,255,255,0.1);
+    color: white;
+}
+
+vaadin-text-field::part(value) {
+    color: white;
+}
+
+/* Progress bar */
+vaadin-progress-bar {
+    --vaadin-progress-bar-color: #667eea;
+}
+
+/* Notification */
+vaadin-notification-card {
+    background: rgba(0,0,0,0.8);
+    color: white;
+}
+

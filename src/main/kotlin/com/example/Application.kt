@@ -5,13 +5,11 @@ import com.example.plugins.configurePlugins
 import com.example.client.healthRoutes
 import com.example.client.imageRoutes
 import com.example.client.ingestRoutes
-import com.example.client.cameraRoutes
 import com.example.services.DatabaseService
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.routing.*
-import io.ktor.server.response.*
 import org.slf4j.LoggerFactory
 
 private val logger = LoggerFactory.getLogger("Application")
@@ -61,23 +59,6 @@ fun Application.configureRouting() {
 
         // Görüntü analiz endpoint'leri
         imageRoutes()
-
-        // Kamera polling endpoint'leri
-        cameraRoutes()
-
-        // Kök dizine test-analyze endpointi (shortcut)
-        get("/test-analyze") {
-            // Görüntü URL'sinden analiz yap
-            val startTime = System.currentTimeMillis()
-            try {
-                val cameraUrl = "https://images.wsdot.wa.gov/nw/005vc13410.jpg"
-                val image = javax.imageio.ImageIO.read(java.net.URL(cameraUrl))
-                val result = com.example.services.AIAnalysisService.analyzeImage(image)
-                val elapsed = System.currentTimeMillis() - startTime
-                call.respond(mapOf("success" to true, "analysis" to result, "elapsed_ms" to elapsed, "camera_url" to cameraUrl))
-            } catch (e: Exception) {
-                call.respond(io.ktor.http.HttpStatusCode.InternalServerError, mapOf("success" to false, "error" to (e.message ?: "Error")))
-            }
-        }
     }
 }
+

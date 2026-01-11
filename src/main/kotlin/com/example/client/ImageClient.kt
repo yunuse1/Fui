@@ -5,7 +5,6 @@ import com.example.models.*
 import com.example.services.AIAnalysisService
 import com.example.services.DatabaseService
 import com.example.services.ImageService
-import com.example.services.CameraPollingService
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -77,11 +76,11 @@ fun Route.imageRoutes() {
                 }
 
                 call.respond(
-                    mapOf(
-                        "filename" to request.filename,
-                        "width" to bufferedImage.width,
-                        "height" to bufferedImage.height,
-                        "pixelCount" to ImageService.getPixelCount(bufferedImage)
+                    ImageInfoResponse(
+                        filename = request.filename,
+                        width = bufferedImage.width,
+                        height = bufferedImage.height,
+                        pixelCount = ImageService.getPixelCount(bufferedImage)
                     )
                 )
             } catch (e: Exception) {
@@ -102,17 +101,17 @@ fun Route.imageRoutes() {
             if (bufferedImage == null) {
                 call.respond(
                     HttpStatusCode.BadRequest,
-                    mapOf("error" to "Invalid image format")
+                    ErrorResponse("Invalid image format")
                 )
                 return@post
             }
 
             val result = ImageService.analyzeImage(bufferedImage)
-            call.respond(mapOf("success" to true, "analysis" to result))
+            call.respond(ImageAnalysisResponse(success = true, analysis = result))
         } catch (e: Exception) {
             call.respond(
                 HttpStatusCode.BadRequest,
-                mapOf("error" to (e.message ?: "Unknown error"))
+                ErrorResponse(e.message ?: "Unknown error")
             )
         }
     }
@@ -168,8 +167,8 @@ fun Route.imageRoutes() {
             // Sonuçları veritabanına kaydet
             val savedId = DatabaseService.saveAnalysisResult(
                 filename = request.filename,
-                deviceId = request.deviceId,
-                location = request.location,
+                deviceId = null,
+                location = null,
                 basicAnalysis = analysisResult.basicAnalysis,
                 vehicleDetection = analysisResult.vehicleDetection,
                 crowdAnalysis = analysisResult.crowdAnalysis,
@@ -221,7 +220,7 @@ fun Route.imageRoutes() {
                 )
 
             val result = AIAnalysisService.detectVehicles(bufferedImage)
-            call.respond(mapOf("success" to true, "vehicleDetection" to result))
+            call.respond(VehicleDetectionResponse(success = true, vehicleDetection = result))
         } catch (e: Exception) {
             call.respond(HttpStatusCode.BadRequest, ErrorResponse(e.message ?: "Error"))
         }
@@ -240,7 +239,7 @@ fun Route.imageRoutes() {
                 )
 
             val result = AIAnalysisService.analyzeCrowd(bufferedImage)
-            call.respond(mapOf("success" to true, "crowdAnalysis" to result))
+            call.respond(CrowdAnalysisResponse(success = true, crowdAnalysis = result))
         } catch (e: Exception) {
             call.respond(HttpStatusCode.BadRequest, ErrorResponse(e.message ?: "Error"))
         }
@@ -259,7 +258,7 @@ fun Route.imageRoutes() {
                 )
 
             val result = AIAnalysisService.estimateAirQuality(bufferedImage)
-            call.respond(mapOf("success" to true, "airQuality" to result))
+            call.respond(AirQualityResponse(success = true, airQuality = result))
         } catch (e: Exception) {
             call.respond(HttpStatusCode.BadRequest, ErrorResponse(e.message ?: "Error"))
         }
@@ -278,7 +277,7 @@ fun Route.imageRoutes() {
                 )
 
             val result = AIAnalysisService.analyzeTraffic(bufferedImage)
-            call.respond(mapOf("success" to true, "trafficAnalysis" to result))
+            call.respond(TrafficResponse(success = true, trafficAnalysis = result))
         } catch (e: Exception) {
             call.respond(HttpStatusCode.BadRequest, ErrorResponse(e.message ?: "Error"))
         }
@@ -291,7 +290,7 @@ fun Route.imageRoutes() {
         try {
             val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 100
             val records = DatabaseService.getRecentRecords(limit)
-            call.respond(mapOf("success" to true, "count" to records.size, "records" to records))
+            call.respond(RecordsResponse(success = true, count = records.size, records = records))
         } catch (e: Exception) {
             call.respond(HttpStatusCode.InternalServerError, ErrorResponse(e.message ?: "Error"))
         }
@@ -302,7 +301,7 @@ fun Route.imageRoutes() {
         try {
             val hours = call.request.queryParameters["hours"]?.toIntOrNull() ?: 24
             val stats = DatabaseService.getStatistics(hours)
-            call.respond(mapOf("success" to true, "period_hours" to hours, "statistics" to stats))
+            call.respond(StatisticsResponse(success = true, periodHours = hours, statistics = stats))
         } catch (e: Exception) {
             call.respond(HttpStatusCode.InternalServerError, ErrorResponse(e.message ?: "Error"))
         }
@@ -370,87 +369,3 @@ fun Route.imageRoutes() {
         }
     }
 }
-
-fun Route.cameraRoutes() {
-    route("/camera") {
-        post("/start") {
-            try {
-                val request = call.receive<CameraStartRequest>()
-                val cameraUrl = request.cameraUrl ?: "https://www.earthcam.com/public/cam-images/westsidepavilion.jpg" // Default bus stop camera
-                val sampleRateMs = request.sampleRateMs ?: 5000L
-
-                val started = CameraPollingService.start(cameraUrl, sampleRateMs)
-                if (started) {
-                    call.respond(CameraResponse(success = true, message = "Camera polling started for $cameraUrl"))
-                } else {
-                    call.respond(HttpStatusCode.Conflict, CameraResponse(success = false, message = "Camera polling already running"))
-                }
-            } catch (e: Exception) {
-                logger.error("Error starting camera: ${e.message}", e)
-                call.respond(HttpStatusCode.BadRequest, CameraResponse(success = false, message = e.message ?: "Unknown error"))
-            }
-        }
-
-        post("/stop") {
-            try {
-                val stopped = CameraPollingService.stop()
-                if (stopped) {
-                    call.respond(CameraResponse(success = true, message = "Camera polling stopped"))
-                } else {
-                    call.respond(HttpStatusCode.Conflict, CameraResponse(success = false, message = "Camera polling not running"))
-                }
-            } catch (e: Exception) {
-                logger.error("Error stopping camera: ${e.message}", e)
-                call.respond(HttpStatusCode.InternalServerError, CameraResponse(success = false, message = e.message ?: "Unknown error"))
-            }
-        }
-
-        get("/status") {
-            try {
-                val status = CameraPollingService.getStatus()
-                call.respond(CameraStatusResponse(
-                    success = true,
-                    running = status.running,
-                    lastEstimatedPeople = status.lastEstimatedPeople,
-                    lastUpdatedMs = status.lastUpdatedMs
-                ))
-            } catch (e: Exception) {
-                logger.error("Error getting camera status: ${e.message}", e)
-                call.respond(HttpStatusCode.InternalServerError, CameraStatusResponse(success = false, error = e.message ?: "Unknown error"))
-            }
-        }
-
-        get("/preview") {
-            try {
-                val bytes = CameraPollingService.getPreviewBytes()
-                if (bytes != null) {
-                    call.respondBytes(bytes, io.ktor.http.ContentType.Image.JPEG)
-                } else {
-                    call.respond(HttpStatusCode.NoContent, "No preview available")
-                }
-            } catch (e: Exception) {
-                logger.error("Error getting camera preview: ${e.message}", e)
-                call.respond(HttpStatusCode.InternalServerError, "Error retrieving preview")
-            }
-        }
-    }
-}
-
-// Camera API models
-data class CameraStartRequest(
-    val cameraUrl: String? = null,
-    val sampleRateMs: Long? = null
-)
-
-data class CameraResponse(
-    val success: Boolean,
-    val message: String
-)
-
-data class CameraStatusResponse(
-    val success: Boolean,
-    val running: Boolean? = null,
-    val lastEstimatedPeople: Int? = null,
-    val lastUpdatedMs: Long? = null,
-    val error: String? = null
-)

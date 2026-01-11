@@ -21,6 +21,8 @@ private fun Application.configureSerialization() {
             isLenient = true
             ignoreUnknownKeys = true
             encodeDefaults = true
+            // Eğer polymorphic Map/LinkedHashMap hataları devam ederse,
+            // burada SerializersModule ile özel serializer'lar register edilebilir.
         })
     }
 }
@@ -42,4 +44,3 @@ private fun Application.configureCompression() {
         }
     }
 }
-

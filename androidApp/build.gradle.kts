@@ -1,6 +1,44 @@
-// Minimal placeholder for androidApp module
-// Configure this module in Android Studio (apply plugin 'com.android.application' and add android {} block)
+plugins {
+    id("com.android.application")
+    kotlin("android")
+}
 
-// For now keep the module present but without applying Android plugins to avoid build-time resolution errors.
+repositories {
+    google()
+    mavenCentral()
+}
 
-// You can later replace this with a full Android Gradle script.
+android {
+    namespace = "com.example.android"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.example.android"
+        minSdk = 24
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}
+
+dependencies {
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("com.google.android.material:material:1.11.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation(project(":shared"))
+}

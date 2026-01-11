@@ -1,5 +1,6 @@
 package com.example.client
 
+import com.example.models.BatchIngestResponse
 import com.example.models.IngestPayload
 import com.example.models.IngestResponse
 import io.ktor.server.application.*
@@ -32,12 +33,11 @@ fun Route.ingestRoutes() {
             logger.info("Received batch ingest: ${payloads.size} items")
 
             call.respond(
-                mapOf(
-                    "received" to true,
-                    "count" to payloads.size
+                BatchIngestResponse(
+                    received = true,
+                    count = payloads.size
                 )
             )
         }
     }
 }
-
