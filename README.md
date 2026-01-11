@@ -40,8 +40,8 @@ Federated Urban Insights (FUI) is a **serverless, privacy-first** application th
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/fui.git
-cd fui
+git clone https://github.com/yunuse1/Fui.git
+cd Fui
 ```
 
 2. Open in Android Studio:

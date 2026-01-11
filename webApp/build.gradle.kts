@@ -30,8 +30,8 @@ dependencies {
     implementation("com.vaadin:vaadin-spring-boot-starter")
 
     // Kotlin
-    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.0.21")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:2.0.21")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.0.0")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:2.0.0")
 
     // Shared KMP module
     implementation(project(":shared"))
