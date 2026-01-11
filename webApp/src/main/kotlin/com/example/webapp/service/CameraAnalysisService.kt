@@ -377,6 +377,14 @@ class CameraAnalysisService {
         val w = image.width
         val h = image.height
 
+        // === SAHNE TESPİTİ - İç mekan/dış mekan kontrolü ===
+        val sceneAnalysis = analyzeSceneType(image)
+
+        // Eğer trafik sahnesi değilse, uyarı ver
+        if (!sceneAnalysis.isTrafficScene) {
+            return createNonTrafficResult(w, h, sceneAnalysis, providedImageData, image)
+        }
+
         var redSum = 0L; var greenSum = 0L; var blueSum = 0L
         var darkPixels = 0; var veryDarkPixels = 0; var grayPixels = 0
         var bluePixels = 0; var yellowPixels = 0; var lightPixels = 0
@@ -771,5 +779,287 @@ class CameraAnalysisService {
         val b = rgb and 0xFF
         return (r + g + b) / 3
     }
-}
 
+    // === SAHNE TESPİTİ SİSTEMİ ===
+
+    data class SceneAnalysis(
+        val isTrafficScene: Boolean,
+        val isOutdoor: Boolean,
+        val isIndoor: Boolean,
+        val sceneType: String,
+        val confidence: Double,
+        val skyRatio: Double,
+        val roadRatio: Double,
+        val brownRatio: Double,
+        val greenRatio: Double,
+        val avgBrightness: Int
+    )
+
+    /**
+     * Sahne Tipi Analizi
+     * Gökyüzü, yol, iç mekan zemin ve renk dağılımına bakarak sahne tipini belirler
+     */
+    private fun analyzeSceneType(image: BufferedImage): SceneAnalysis {
+        val w = image.width
+        val h = image.height
+
+        var skyPixels = 0
+        var roadPixels = 0
+        var brownPixels = 0  // İç mekan zemin (kahverengi/turuncu)
+        var greenPixels = 0  // Doğa
+        var totalSamples = 0
+
+        var redSum = 0L
+        var greenSum = 0L
+        var blueSum = 0L
+
+        // Üst 1/3 bölge analizi (gökyüzü tespiti)
+        for (y in 0 until h / 3 step 4) {
+            for (x in 0 until w step 4) {
+                val rgb = image.getRGB(x, y)
+                val r = (rgb shr 16) and 0xFF
+                val g = (rgb shr 8) and 0xFF
+                val b = rgb and 0xFF
+
+                // Mavi gökyüzü tespiti
+                if (b > 150 && b > r + 20 && b > g - 30 && g > 100) {
+                    skyPixels++
+                }
+                // Gri/beyaz gökyüzü (bulutlu)
+                if (r > 180 && g > 180 && b > 180 &&
+                    kotlin.math.abs(r - g) < 30 && kotlin.math.abs(g - b) < 30) {
+                    skyPixels++
+                }
+                totalSamples++
+            }
+        }
+
+        // Alt 2/3 bölge analizi (yol/zemin tespiti)
+        for (y in h / 3 until h step 4) {
+            for (x in 0 until w step 4) {
+                val rgb = image.getRGB(x, y)
+                val r = (rgb shr 16) and 0xFF
+                val g = (rgb shr 8) and 0xFF
+                val b = rgb and 0xFF
+                val brightness = (r + g + b) / 3
+                val saturation = maxOf(r, g, b) - minOf(r, g, b)
+
+                redSum += r
+                greenSum += g
+                blueSum += b
+
+                // Asfalt/yol tespiti (koyu gri, düşük satürasyon)
+                if (brightness in 40..120 && saturation < 40) {
+                    roadPixels++
+                }
+                // Kahverengi/turuncu zemin (iç mekan, tarihi yapı, mermer)
+                if (r > g && r > b && r in 80..220 && g in 50..180 && saturation in 15..120) {
+                    brownPixels++
+                }
+                // Yeşil alan (doğa, park)
+                if (g > r && g > b && g > 80 && saturation > 30) {
+                    greenPixels++
+                }
+                totalSamples++
+            }
+        }
+
+        val skyRatio = if (totalSamples > 0) skyPixels.toDouble() / (totalSamples / 3) else 0.0
+        val roadRatio = if (totalSamples > 0) roadPixels.toDouble() / (totalSamples * 2 / 3) else 0.0
+        val brownRatio = if (totalSamples > 0) brownPixels.toDouble() / (totalSamples * 2 / 3) else 0.0
+        val greenRatio = if (totalSamples > 0) greenPixels.toDouble() / (totalSamples * 2 / 3) else 0.0
+        val avgBrightness = if (totalSamples > 0) ((redSum + greenSum + blueSum) / (totalSamples * 3)).toInt() else 128
+
+        // Sahne tipi belirleme
+        val isOutdoor = skyRatio > 0.15 || (avgBrightness > 100 && roadRatio > 0.1)
+        val isIndoor = !isOutdoor && (brownRatio > 0.15 || (skyRatio < 0.05 && roadRatio < 0.1))
+
+        // Trafik sahnesi kriterleri:
+        // 1. Gökyüzü görünmeli VEYA çok parlak olmalı
+        // 2. Yol benzeri yüzey olmalı
+        // 3. Kahverengi iç mekan zemini düşük olmalı
+        // 4. Yeşil alan çok fazla olmamalı
+        val isTrafficScene = (skyRatio > 0.08 || avgBrightness > 130) &&
+                            roadRatio > 0.06 &&
+                            brownRatio < 0.20 &&
+                            greenRatio < 0.35
+
+        val confidence = when {
+            isTrafficScene && skyRatio > 0.2 && roadRatio > 0.15 -> 0.9
+            isTrafficScene && roadRatio > 0.1 -> 0.7
+            isTrafficScene -> 0.5
+            else -> 0.3
+        }
+
+        val sceneType = when {
+            isTrafficScene -> "🚗 Trafik/Yol Sahnesi"
+            greenRatio > 0.3 -> "🌳 Doğa/Park"
+            isIndoor && brownRatio > 0.15 -> "🏛️ İç Mekan (Tarihi Yapı)"
+            isIndoor -> "🏠 İç Mekan"
+            isOutdoor -> "🏙️ Dış Mekan (Trafik Yok)"
+            else -> "❓ Belirsiz"
+        }
+
+        return SceneAnalysis(
+            isTrafficScene = isTrafficScene,
+            isOutdoor = isOutdoor,
+            isIndoor = isIndoor,
+            sceneType = sceneType,
+            confidence = confidence,
+            skyRatio = skyRatio,
+            roadRatio = roadRatio,
+            brownRatio = brownRatio,
+            greenRatio = greenRatio,
+            avgBrightness = avgBrightness
+        )
+    }
+
+    /**
+     * Trafik dışı sahne için sonuç oluşturur - SADECE İNSAN SAYIMI YAPAR
+     */
+    private fun createNonTrafficResult(
+        w: Int,
+        h: Int,
+        scene: SceneAnalysis,
+        providedImageData: ByteArray?,
+        image: BufferedImage
+    ): AnalysisResult {
+        val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))
+
+        // İnsan sayımı için edge detection yap
+        val estimatedPeople = countPeopleInScene(image)
+
+        val crowdLevel = when {
+            estimatedPeople >= 30 -> "ÇOK YOĞUN 🔴"
+            estimatedPeople >= 15 -> "YOĞUN 🟠"
+            estimatedPeople >= 8 -> "ORTA 🟡"
+            estimatedPeople >= 3 -> "AZ 🟢"
+            estimatedPeople >= 1 -> "ÇOK AZ 🟢"
+            else -> "BOŞ ⚪"
+        }
+
+        val fullReport = """
+══════════════════════════════════════
+📊 KALABALIK ANALİZ RAPORU
+══════════════════════════════════════
+🕐 $timestamp
+📐 Çözünürlük: ${w}x${h}
+
+──────────────────────────────────────
+🎯 SAHNE TESPİTİ
+──────────────────────────────────────
+   Tip: ${scene.sceneType}
+   
+   ℹ️ Bu görüntü iç mekan/tarihi yapı
+   olarak tespit edildi.
+   
+   🚗 Araç analizi devre dışı
+   👥 Sadece kalabalık analizi yapıldı
+
+──────────────────────────────────────
+👥 KALABALIK ANALİZİ
+──────────────────────────────────────
+   Tahmini Kişi: ~$estimatedPeople
+   Yoğunluk: $crowdLevel
+
+──────────────────────────────────────
+📊 SAHNE BİLGİLERİ
+──────────────────────────────────────
+   Gökyüzü: %.1f%%
+   Zemin Tipi: ${if (scene.brownRatio > 0.15) "İç Mekan" else "Belirsiz"}
+   Parlaklık: ${scene.avgBrightness}
+
+══════════════════════════════════════
+✅ Kalabalık analizi tamamlandı
+🔒 Veri sunucuya gönderilmedi
+══════════════════════════════════════
+        """.trimIndent().format(scene.skyRatio * 100)
+
+        // Görüntüyü byte array'e çevir
+        val imageData = providedImageData ?: run {
+            val baos = ByteArrayOutputStream()
+            ImageIO.write(image, "jpg", baos)
+            baos.toByteArray()
+        }
+
+        return AnalysisResult(
+            trafficLevel = "İÇ MEKAN 🏛️",
+            crowdLevel = crowdLevel,
+            weather = "İç Mekan",
+            airQuality = "Normal",
+            timeEstimate = if (scene.avgBrightness > 120) "Aydınlık" else "Loş",
+            estimatedVehicles = 0,  // Araç yok
+            estimatedPeople = estimatedPeople,  // Sadece insan sayısı
+            fullReport = fullReport,
+            imageData = imageData
+        )
+    }
+
+    /**
+     * Sahnedeki insan sayısını tahmin eder
+     * Edge detection ve blob analizi kullanır
+     */
+    private fun countPeopleInScene(image: BufferedImage): Int {
+        val w = image.width
+        val h = image.height
+
+        // İnsan tespiti için daha geniş alan tara (tüm görüntü)
+        var skinTonePixels = 0
+        var clothingPixels = 0
+        var totalEdges = 0
+
+        for (y in 0 until h step 3) {
+            for (x in 0 until w step 3) {
+                val rgb = image.getRGB(x, y)
+                val r = (rgb shr 16) and 0xFF
+                val g = (rgb shr 8) and 0xFF
+                val b = rgb and 0xFF
+
+                // Ten rengi tespiti (çeşitli cilt tonları)
+                val isSkinTone = (r > 95 && g > 40 && b > 20 &&
+                                  r > g && r > b &&
+                                  kotlin.math.abs(r - g) > 15 &&
+                                  r - g < 100 && r - b < 100)
+
+                if (isSkinTone) skinTonePixels++
+
+                // Kıyafet renkleri (koyu/açık tonlar, gökyüzü ve zemin hariç)
+                val brightness = (r + g + b) / 3
+                val saturation = maxOf(r, g, b) - minOf(r, g, b)
+                val isClothing = brightness in 30..220 &&
+                                 saturation > 10 &&
+                                 !(b > r + 30 && b > g) // Gökyüzü değil
+
+                if (isClothing) clothingPixels++
+            }
+        }
+
+        // Edge detection (insan siluetleri için)
+        for (y in 1 until h - 1 step 4) {
+            for (x in 1 until w - 1 step 4) {
+                val left = getBrightness(image.getRGB(x - 1, y))
+                val right = getBrightness(image.getRGB(x + 1, y))
+                val top = getBrightness(image.getRGB(x, y - 1))
+                val bottom = getBrightness(image.getRGB(x, y + 1))
+                val grad = sqrt(((right - left) * (right - left) + (bottom - top) * (bottom - top)).toDouble())
+                if (grad > 25) totalEdges++
+            }
+        }
+
+        val samples = (w / 3) * (h / 3)
+        val skinRatio = skinTonePixels.toDouble() / samples
+        val edgeDensity = totalEdges.toDouble() / ((w / 4) * (h / 4))
+
+        // İnsan tahmini: ten rengi ve edge yoğunluğu kombinasyonu
+        val peopleEstimate = when {
+            skinRatio > 0.15 -> (skinRatio * 100 + edgeDensity * 20).toInt()
+            skinRatio > 0.08 -> (skinRatio * 80 + edgeDensity * 15).toInt()
+            skinRatio > 0.03 -> (skinRatio * 60 + edgeDensity * 10).toInt()
+            edgeDensity > 0.3 -> (edgeDensity * 30).toInt()
+            else -> (skinRatio * 40 + edgeDensity * 8).toInt()
+        }
+
+        // Makul sınırlar içinde tut
+        return maxOf(0, minOf(peopleEstimate, 100))
+    }
+}

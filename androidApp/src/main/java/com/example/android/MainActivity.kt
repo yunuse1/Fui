@@ -308,23 +308,21 @@ class MainActivity : AppCompatActivity() {
             return
         }
         progressBar.visibility = ProgressBar.VISIBLE
-        statusText.text = "🔄 Görüntü analiz ediliyor..."
+        statusText.text = "🔄 Akıllı analiz yapılıyor..."
 
         Thread {
             try {
-                val result = performAdvancedAnalysis(bitmap)
+                val result = performSmartAnalysis(bitmap)
                 runOnUiThread {
                     progressBar.visibility = ProgressBar.GONE
                     val timestamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
                     statusText.text = "✅ Analiz tamamlandı - $timestamp"
 
-                    // İstatistikleri güncelle
                     vehicleCountText.text = result.vehicleCount.toString()
                     peopleCountText.text = result.peopleCount.toString()
                     trafficLevelText.text = result.trafficLevel
                     crowdLevelText.text = result.crowdLevel
 
-                    // Renkleri güncelle
                     trafficLevelText.setTextColor(getLevelColor(result.trafficLevel))
                     crowdLevelText.setTextColor(getLevelColor(result.crowdLevel))
 
@@ -340,74 +338,194 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun getLevelColor(level: String): Int {
-        return when {
-            level.contains("ÇOK YOĞUN") || level.contains("🔴") -> Color.parseColor("#F44336")
-            level.contains("YOĞUN") || level.contains("🟠") -> Color.parseColor("#FF9800")
-            level.contains("ORTA") || level.contains("🟡") -> Color.parseColor("#FFEB3B")
-            level.contains("AZ") || level.contains("HAFİF") || level.contains("🟢") -> Color.parseColor("#4CAF50")
-            else -> Color.WHITE
-        }
-    }
-
     data class AnalysisResult(
         val vehicleCount: Int,
         val peopleCount: Int,
         val trafficLevel: String,
         val crowdLevel: String,
-        val fullReport: String
+        val fullReport: String,
+        val sceneType: String,
+        val isValidTrafficScene: Boolean
     )
 
-    private fun performAdvancedAnalysis(bitmap: Bitmap): AnalysisResult {
+    /**
+     * Akıllı Analiz Sistemi
+     * 1. Önce sahne tipi belirlenir (iç mekan/dış mekan/trafik)
+     * 2. Uygun sahnelerde araç/insan sayımı yapılır
+     * 3. Uygunsuz sahnelerde uyarı verilir
+     */
+    private fun performSmartAnalysis(bitmap: Bitmap): AnalysisResult {
         val w = bitmap.width
         val h = bitmap.height
-        val roadStartY = h / 3
 
-        // Temel istatistikler
+        // === ADIM 1: SAHNE TESPİTİ ===
+        val sceneAnalysis = analyzeSceneType(bitmap)
+
+        // === ADIM 2: KOŞULLU ANALİZ ===
+        return if (sceneAnalysis.isTrafficScene) {
+            // Trafik sahnesi - tam analiz yap
+            performTrafficAnalysis(bitmap, sceneAnalysis)
+        } else {
+            // Trafik sahnesi değil - uyarı ver
+            createNonTrafficResult(bitmap, sceneAnalysis)
+        }
+    }
+
+    data class SceneAnalysis(
+        val isTrafficScene: Boolean,
+        val isOutdoor: Boolean,
+        val isIndoor: Boolean,
+        val sceneType: String,
+        val confidence: Double,
+        val skyRatio: Double,
+        val roadRatio: Double,
+        val horizontalLines: Int,
+        val avgBrightness: Int,
+        val colorVariety: Double
+    )
+
+    /**
+     * Sahne Tipi Analizi
+     * Gökyüzü, yol, yatay çizgiler ve renk dağılımına bakarak sahne tipini belirler
+     */
+    private fun analyzeSceneType(bitmap: Bitmap): SceneAnalysis {
+        val w = bitmap.width
+        val h = bitmap.height
+
+        var skyPixels = 0
+        var roadPixels = 0
+        var brownPixels = 0  // İç mekan zemin
+        var greenPixels = 0  // Doğa
+        var totalSamples = 0
+
         var redSum = 0L; var greenSum = 0L; var blueSum = 0L
-        var darkPixels = 0; var veryDarkPixels = 0; var grayPixels = 0
-        var vehicleColorPixels = 0
+        val colorSet = mutableSetOf<Int>()  // Renk çeşitliliği
 
-        for (y in 0 until h step 2) {
-            for (x in 0 until w step 2) {
+        // Üst 1/3 bölge analizi (gökyüzü tespiti)
+        for (y in 0 until h / 3 step 4) {
+            for (x in 0 until w step 4) {
                 val pixel = bitmap.getPixel(x, y)
                 val r = Color.red(pixel)
                 val g = Color.green(pixel)
                 val b = Color.blue(pixel)
-                redSum += r; greenSum += g; blueSum += b
 
-                val brightness = (r + g + b) / 3
-                val saturation = maxOf(r, g, b) - minOf(r, g, b)
-
-                if (brightness < 30) veryDarkPixels++
-                if (brightness < 60) darkPixels++
-                if (saturation < 30) grayPixels++
-
-                // Yol bölgesinde araç renkleri tespit et
-                if (y > roadStartY) {
-                    val isVehicleColor = when {
-                        brightness > 180 && saturation < 50 -> true // Beyaz
-                        brightness in 25..70 && saturation < 25 -> true // Siyah
-                        r > 100 && r > g + 30 && r > b + 30 -> true // Kırmızı
-                        b > 90 && b > r + 15 -> true // Mavi
-                        brightness in 130..190 && saturation < 35 -> true // Gümüş
-                        r > 150 && g > 100 && b < 80 -> true // Sarı/turuncu
-                        else -> false
-                    }
-                    if (isVehicleColor) vehicleColorPixels++
+                // Mavi gökyüzü tespiti
+                if (b > 150 && b > r + 20 && b > g - 30 && g > 100) {
+                    skyPixels++
                 }
+                // Gri/beyaz gökyüzü (bulutlu)
+                if (r > 180 && g > 180 && b > 180 && abs(r - g) < 30 && abs(g - b) < 30) {
+                    skyPixels++
+                }
+                totalSamples++
             }
         }
 
-        val samples = (w / 2) * (h / 2)
-        val avgR = (redSum / samples).toInt()
-        val avgG = (greenSum / samples).toInt()
-        val avgB = (blueSum / samples).toInt()
-        val brightness = (avgR + avgG + avgB) / 3
-        val darkRatio = darkPixels.toDouble() / samples
-        val hazeLevel = grayPixels.toDouble() / samples
+        // Alt 2/3 bölge analizi (yol/zemin tespiti)
+        for (y in h / 3 until h step 4) {
+            for (x in 0 until w step 4) {
+                val pixel = bitmap.getPixel(x, y)
+                val r = Color.red(pixel)
+                val g = Color.green(pixel)
+                val b = Color.blue(pixel)
+                val brightness = (r + g + b) / 3
+                val saturation = maxOf(r, g, b) - minOf(r, g, b)
 
-        // Edge detection - yol bölgesi
+                redSum += r; greenSum += g; blueSum += b
+                colorSet.add((r / 32) * 1000000 + (g / 32) * 1000 + (b / 32))
+
+                // Asfalt/yol tespiti (koyu gri, düşük satürasyon)
+                if (brightness in 40..120 && saturation < 40) {
+                    roadPixels++
+                }
+                // Kahverengi zemin (iç mekan, tarihi yapı)
+                if (r > g && r > b && r in 80..200 && g in 50..150 && saturation in 20..100) {
+                    brownPixels++
+                }
+                // Yeşil alan (doğa, park)
+                if (g > r && g > b && g > 80 && saturation > 30) {
+                    greenPixels++
+                }
+                totalSamples++
+            }
+        }
+
+        // Yatay çizgi tespiti (yol çizgileri, ufuk çizgisi)
+        var horizontalLines = 0
+        for (y in h / 4 until h * 3 / 4 step 10) {
+            var linePixels = 0
+            for (x in 10 until w - 10) {
+                val pixel = bitmap.getPixel(x, y)
+                val brightness = (Color.red(pixel) + Color.green(pixel) + Color.blue(pixel)) / 3
+                if (brightness > 180) linePixels++
+            }
+            if (linePixels > w * 0.3) horizontalLines++
+        }
+
+        val skyRatio = skyPixels.toDouble() / (totalSamples / 3)
+        val roadRatio = roadPixels.toDouble() / (totalSamples * 2 / 3)
+        val brownRatio = brownPixels.toDouble() / (totalSamples * 2 / 3)
+        val greenRatio = greenPixels.toDouble() / (totalSamples * 2 / 3)
+        val avgBrightness = ((redSum + greenSum + blueSum) / (totalSamples * 3)).toInt()
+        val colorVariety = colorSet.size.toDouble() / 100  // Normalize
+
+        // Sahne tipi belirleme
+        val isOutdoor = skyRatio > 0.15 || (avgBrightness > 100 && roadRatio > 0.1)
+        val isIndoor = !isOutdoor && (brownRatio > 0.2 || colorVariety < 3)
+
+        // Trafik sahnesi kriterleri:
+        // 1. Gökyüzü görünmeli VEYA çok parlak olmalı
+        // 2. Yol benzeri yüzey olmalı
+        // 3. Yatay çizgiler olmalı (yol çizgileri)
+        // 4. Kahverengi iç mekan zemini düşük olmalı
+        val isTrafficScene = (skyRatio > 0.1 || avgBrightness > 120) &&
+                            roadRatio > 0.08 &&
+                            brownRatio < 0.25 &&
+                            greenRatio < 0.4
+
+        val confidence = when {
+            isTrafficScene && skyRatio > 0.2 && roadRatio > 0.15 -> 0.9
+            isTrafficScene && roadRatio > 0.1 -> 0.7
+            isTrafficScene -> 0.5
+            else -> 0.3
+        }
+
+        val sceneType = when {
+            isTrafficScene -> "🚗 Trafik/Yol Sahnesi"
+            greenRatio > 0.3 -> "🌳 Doğa/Park"
+            isIndoor && brownRatio > 0.2 -> "🏛️ İç Mekan (Tarihi Yapı)"
+            isIndoor -> "🏠 İç Mekan"
+            isOutdoor -> "🏙️ Dış Mekan (Trafik Yok)"
+            else -> "❓ Belirsiz"
+        }
+
+        return SceneAnalysis(
+            isTrafficScene = isTrafficScene,
+            isOutdoor = isOutdoor,
+            isIndoor = isIndoor,
+            sceneType = sceneType,
+            confidence = confidence,
+            skyRatio = skyRatio,
+            roadRatio = roadRatio,
+            horizontalLines = horizontalLines,
+            avgBrightness = avgBrightness,
+            colorVariety = colorVariety
+        )
+    }
+
+    /**
+     * Trafik Sahnesi Analizi
+     * Araç ve insan sayımı yapar
+     */
+    private fun performTrafficAnalysis(bitmap: Bitmap, scene: SceneAnalysis): AnalysisResult {
+        val w = bitmap.width
+        val h = bitmap.height
+        val roadStartY = h / 3
+
+        // Araç sayımı
+        val vehicleBlobs = countVehicleBlobs(bitmap, roadStartY)
+
+        // Edge density hesapla (kalabalık için)
         var roadEdges = 0
         for (y in roadStartY + 1 until h - 1 step 3) {
             for (x in 1 until w - 1 step 3) {
@@ -419,65 +537,52 @@ class MainActivity : AppCompatActivity() {
                 if (grad > 30) roadEdges++
             }
         }
-
         val roadSamples = ((w / 3) * ((h - roadStartY) / 3))
         val roadEdgeDensity = if (roadSamples > 0) roadEdges.toDouble() / roadSamples else 0.0
 
-        // ===== ARAÇ SAYIMI (Blob Detection) =====
-        val vehicleBlobs = countVehicleBlobs(bitmap, roadStartY)
+        // Güvenilirlik faktörü - düşük güvenilirlikte araç sayısını azalt
+        val reliabilityFactor = scene.confidence
+        val adjustedVehicles = (vehicleBlobs * reliabilityFactor).toInt()
 
-        // ===== TRAFİK SEVİYESİ =====
         val trafficLevel = when {
-            vehicleBlobs >= 12 -> "ÇOK YOĞUN 🔴"
-            vehicleBlobs >= 6 -> "YOĞUN 🟠"
-            vehicleBlobs >= 3 -> "ORTA 🟡"
-            vehicleBlobs >= 1 -> "HAFİF 🟢"
+            adjustedVehicles >= 12 -> "ÇOK YOĞUN 🔴"
+            adjustedVehicles >= 6 -> "YOĞUN 🟠"
+            adjustedVehicles >= 3 -> "ORTA 🟡"
+            adjustedVehicles >= 1 -> "HAFİF 🟢"
             else -> "BOŞ ⚪"
         }
 
-        // ===== KALABALIK SEVİYESİ =====
-        val estimatedPeople = (roadEdgeDensity * 80).toInt()
+        val estimatedPeople = (roadEdgeDensity * 50 * reliabilityFactor).toInt()
         val crowdLevel = when {
-            roadEdgeDensity > 0.45 -> "ÇOK YOĞUN 🔴"
-            roadEdgeDensity > 0.28 -> "YOĞUN 🟠"
-            roadEdgeDensity > 0.15 -> "ORTA 🟡"
-            roadEdgeDensity > 0.08 -> "AZ 🟢"
+            estimatedPeople >= 15 -> "ÇOK YOĞUN 🔴"
+            estimatedPeople >= 8 -> "YOĞUN 🟠"
+            estimatedPeople >= 4 -> "ORTA 🟡"
+            estimatedPeople >= 1 -> "AZ 🟢"
             else -> "BOŞ ⚪"
-        }
-
-        // ===== ZAMAN TAHMİNİ =====
-        val calendar = java.util.Calendar.getInstance()
-        val currentHour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
-        val isNight = brightness < 60 || (currentHour < 6 || currentHour >= 20)
-
-        val timeEstimate = when {
-            brightness < 40 -> "🌙 Gece"
-            brightness > 150 -> "☀️ Güneşli"
-            brightness > 100 -> "🌤️ Gündüz"
-            else -> "⛅ Bulutlu"
-        }
-
-        // ===== HAVA KALİTESİ =====
-        val airQuality = when {
-            hazeLevel > 0.5 && !isNight -> "😷 KÖTÜ"
-            hazeLevel > 0.35 && !isNight -> "😐 ORTA"
-            hazeLevel > 0.2 -> "🙂 İYİ"
-            else -> "😊 ÇOK İYİ"
         }
 
         val timestamp = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
 
         val fullReport = """
 ══════════════════════════════
-📊 ANALİZ RAPORU
+📊 TRAFİK ANALİZ RAPORU
 ══════════════════════════════
 🕐 $timestamp
 📐 Boyut: ${w}x${h}
 
 ──────────────────────────────
+🎯 SAHNE TESPİTİ
+──────────────────────────────
+   Tip: ${scene.sceneType}
+   Güvenilirlik: ${(scene.confidence * 100).toInt()}%
+   Gökyüzü: ${(scene.skyRatio * 100).toInt()}%
+   Yol Oranı: ${(scene.roadRatio * 100).toInt()}%
+
+──────────────────────────────
 🚗 ARAÇ ANALİZİ
 ──────────────────────────────
-   Tespit Edilen: $vehicleBlobs araç
+   Ham Tespit: $vehicleBlobs araç
+   Düzeltilmiş: $adjustedVehicles araç
    Trafik: $trafficLevel
 
 ──────────────────────────────
@@ -486,27 +591,159 @@ class MainActivity : AppCompatActivity() {
    Tahmini: ~$estimatedPeople kişi
    Seviye: $crowdLevel
 
-──────────────────────────────
-🌤️ ORTAM
-──────────────────────────────
-   Zaman: $timeEstimate
-   Parlaklık: $brightness
-   Hava Kalitesi: $airQuality
-
 ══════════════════════════════
-✅ Cihazda analiz edildi
-🔒 Veri sunucuya gönderilmedi
+✅ Akıllı analiz tamamlandı
+🔒 Cihazda işlendi (Serverless)
 ══════════════════════════════
         """.trimIndent()
 
         return AnalysisResult(
-            vehicleCount = vehicleBlobs,
+            vehicleCount = adjustedVehicles,
             peopleCount = estimatedPeople,
             trafficLevel = trafficLevel,
             crowdLevel = crowdLevel,
-            fullReport = fullReport
+            fullReport = fullReport,
+            sceneType = scene.sceneType,
+            isValidTrafficScene = true
         )
     }
+
+    /**
+     * Trafik dışı sahne sonucu oluşturur - SADECE İNSAN SAYIMI YAPAR
+     */
+    private fun createNonTrafficResult(bitmap: Bitmap, scene: SceneAnalysis): AnalysisResult {
+        val w = bitmap.width
+        val h = bitmap.height
+        val timestamp = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+
+        // İnsan sayımı yap
+        val estimatedPeople = countPeopleInScene(bitmap)
+
+        val crowdLevel = when {
+            estimatedPeople >= 30 -> "ÇOK YOĞUN 🔴"
+            estimatedPeople >= 15 -> "YOĞUN 🟠"
+            estimatedPeople >= 8 -> "ORTA 🟡"
+            estimatedPeople >= 3 -> "AZ 🟢"
+            estimatedPeople >= 1 -> "ÇOK AZ 🟢"
+            else -> "BOŞ ⚪"
+        }
+
+        val fullReport = """
+══════════════════════════════
+📊 KALABALIK ANALİZ RAPORU
+══════════════════════════════
+🕐 $timestamp
+📐 Boyut: ${w}x${h}
+
+──────────────────────────────
+🎯 SAHNE TESPİTİ
+──────────────────────────────
+   Tip: ${scene.sceneType}
+   
+   ℹ️ Bu görüntü iç mekan/tarihi yapı
+   olarak tespit edildi.
+   
+   🚗 Araç analizi devre dışı
+   👥 Sadece kalabalık analizi yapıldı
+
+──────────────────────────────
+👥 KALABALIK ANALİZİ
+──────────────────────────────
+   Tahmini Kişi: ~$estimatedPeople
+   Yoğunluk: $crowdLevel
+
+──────────────────────────────
+📊 SAHNE BİLGİLERİ
+──────────────────────────────
+   Gökyüzü: ${(scene.skyRatio * 100).toInt()}%
+   Zemin: ${if (scene.isIndoor) "İç Mekan" else "Belirsiz"}
+
+══════════════════════════════
+✅ Kalabalık analizi tamamlandı
+🔒 Cihazda işlendi (Serverless)
+══════════════════════════════
+        """.trimIndent()
+
+        return AnalysisResult(
+            vehicleCount = 0,
+            peopleCount = estimatedPeople,
+            trafficLevel = "İÇ MEKAN 🏛️",
+            crowdLevel = crowdLevel,
+            fullReport = fullReport,
+            sceneType = scene.sceneType,
+            isValidTrafficScene = false
+        )
+    }
+
+    /**
+     * Sahnedeki insan sayısını tahmin eder
+     */
+    private fun countPeopleInScene(bitmap: Bitmap): Int {
+        val w = bitmap.width
+        val h = bitmap.height
+
+        var skinTonePixels = 0
+        var totalEdges = 0
+
+        // Ten rengi tespiti
+        for (y in 0 until h step 3) {
+            for (x in 0 until w step 3) {
+                val pixel = bitmap.getPixel(x, y)
+                val r = Color.red(pixel)
+                val g = Color.green(pixel)
+                val b = Color.blue(pixel)
+
+                // Ten rengi tespiti (çeşitli cilt tonları)
+                val isSkinTone = (r > 95 && g > 40 && b > 20 &&
+                                  r > g && r > b &&
+                                  abs(r - g) > 15 &&
+                                  r - g < 100 && r - b < 100)
+
+                if (isSkinTone) skinTonePixels++
+            }
+        }
+
+        // Edge detection (insan siluetleri için)
+        for (y in 1 until h - 1 step 4) {
+            for (x in 1 until w - 1 step 4) {
+                val left = getBrightness(bitmap.getPixel(x - 1, y))
+                val right = getBrightness(bitmap.getPixel(x + 1, y))
+                val top = getBrightness(bitmap.getPixel(x, y - 1))
+                val bottom = getBrightness(bitmap.getPixel(x, y + 1))
+                val grad = sqrt(((right - left) * (right - left) + (bottom - top) * (bottom - top)).toDouble())
+                if (grad > 25) totalEdges++
+            }
+        }
+
+        val samples = (w / 3) * (h / 3)
+        val skinRatio = skinTonePixels.toDouble() / samples
+        val edgeDensity = totalEdges.toDouble() / ((w / 4) * (h / 4))
+
+        // İnsan tahmini
+        val peopleEstimate = when {
+            skinRatio > 0.15 -> (skinRatio * 100 + edgeDensity * 20).toInt()
+            skinRatio > 0.08 -> (skinRatio * 80 + edgeDensity * 15).toInt()
+            skinRatio > 0.03 -> (skinRatio * 60 + edgeDensity * 10).toInt()
+            edgeDensity > 0.3 -> (edgeDensity * 30).toInt()
+            else -> (skinRatio * 40 + edgeDensity * 8).toInt()
+        }
+
+        return maxOf(0, minOf(peopleEstimate, 100))
+    }
+
+    private fun getLevelColor(level: String): Int {
+        return when {
+            level.contains("İÇ MEKAN") || level.contains("🏛️") -> Color.parseColor("#9C27B0")  // Mor
+            level.contains("UYGUNSUZ") || level.contains("⚠️") -> Color.parseColor("#9E9E9E")
+            level.contains("ÇOK YOĞUN") || level.contains("🔴") -> Color.parseColor("#F44336")
+            level.contains("YOĞUN") || level.contains("🟠") -> Color.parseColor("#FF9800")
+            level.contains("ORTA") || level.contains("🟡") -> Color.parseColor("#FFEB3B")
+            level.contains("AZ") || level.contains("HAFİF") || level.contains("🟢") -> Color.parseColor("#4CAF50")
+            else -> Color.WHITE
+        }
+    }
+
+
 
     /**
      * Gelişmiş araç sayımı - Dikdörtgen blob algılama
