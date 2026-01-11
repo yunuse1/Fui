@@ -11,6 +11,11 @@ import java.time.format.DateTimeFormatter
 import java.util.*
 import javax.imageio.ImageIO
 import kotlin.math.sqrt
+// Import shared module for cross-platform analysis logic
+import com.urban.insights.ImageAnalyzer
+import com.urban.insights.TrafficLevel
+import com.urban.insights.CrowdLevel
+import com.urban.insights.SceneType
 
 data class AnalysisResult(
     val trafficLevel: String,
@@ -417,16 +422,16 @@ class CameraAnalysisService {
         }
         val estimatedPeople = (roadEdgeDensity * 100).toInt()
 
+        // Use shared module for crowd level determination
+        val sharedCrowdLevel = ImageAnalyzer.determineCrowdLevel(estimatedPeople)
+
         val vehicleBlobs = countVehicleBlobs(image)
 
         val trafficScore = roadEdgeDensity * 0.4 + vehicleRatio * 0.3 + (vehicleBlobs / 20.0) * 0.3
-        val trafficLevel = when {
-            vehicleBlobs >= 15 || trafficScore > 0.35 -> "VERY HIGH 🔴"
-            vehicleBlobs >= 8 || trafficScore > 0.22 -> "HIGH 🟠"
-            vehicleBlobs >= 4 || trafficScore > 0.12 -> "MEDIUM 🟡"
-            vehicleBlobs >= 1 || trafficScore > 0.05 -> "LOW 🟢"
-            else -> "EMPTY ⚪"
-        }
+
+        // Use shared module for traffic level determination
+        val sharedTrafficLevel = ImageAnalyzer.determineTrafficLevel(vehicleBlobs, true)
+        val trafficLevel = "${sharedTrafficLevel.description} ${sharedTrafficLevel.emoji}"
 
         val edgeBasedEstimate = maxOf(0, (roadEdgeDensity * 15).toInt())
         val estimatedVehicles = when {
@@ -525,20 +530,9 @@ $timestamp | ${w}x${h}
                 val r = (rgb shr 16) and 0xFF
                 val g = (rgb shr 8) and 0xFF
                 val b = rgb and 0xFF
-                val brightness = (r + g + b) / 3
-                val saturation = maxOf(r, g, b) - minOf(r, g, b)
 
-                val diffFromRoad = kotlin.math.abs(brightness - medianRoadBrightness)
-
-                val isVehicle = when {
-                    diffFromRoad < 30 -> false
-                    brightness > 210 && saturation < 40 && diffFromRoad > 100 -> true
-                    brightness < 40 && saturation < 15 && diffFromRoad > 40 -> true
-                    r > 160 && r > g + 60 && r > b + 60 && saturation > 80 -> true
-                    b > 140 && b > r + 45 && b > g + 30 && saturation > 70 -> true
-                    r > 200 && g > 140 && b < 70 && saturation > 100 -> true
-                    else -> false
-                }
+                // Use shared module for vehicle pixel detection
+                val isVehicle = ImageAnalyzer.isVehiclePixel(r, g, b, medianRoadBrightness)
 
                 mask[sy][sx] = isVehicle
             }
@@ -561,8 +555,6 @@ $timestamp | ${w}x${h}
         }
 
         var blobCount = 0
-        val minBlobSize = 10
-        val maxBlobSize = 80
 
         for (sy in 0 until scaledH) {
             for (sx in 0 until scaledW) {
@@ -570,8 +562,11 @@ $timestamp | ${w}x${h}
                     val blobInfo = floodFillWithShape(cleanMask, visited, sx, sy, scaledW, scaledH)
                     val blobSize = blobInfo.first
                     val aspectRatio = blobInfo.second
+                    val blobWidth = (aspectRatio * 10).toInt().coerceAtLeast(1)
+                    val blobHeight = 10
 
-                    if (blobSize in minBlobSize..maxBlobSize && aspectRatio in 0.3f..5.0f) {
+                    // Use shared module for blob validation
+                    if (ImageAnalyzer.isValidVehicleBlob(blobSize, blobWidth, blobHeight, 10, 80)) {
                         blobCount++
                     }
                 }

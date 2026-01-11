@@ -16,6 +16,11 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import kotlin.math.sqrt
 import kotlin.math.abs
+// Import shared module for cross-platform analysis logic
+import com.urban.insights.ImageAnalyzer
+import com.urban.insights.TrafficLevel
+import com.urban.insights.CrowdLevel
+import com.urban.insights.SceneType
 
 class MainActivity : AppCompatActivity() {
 
@@ -412,29 +417,18 @@ class MainActivity : AppCompatActivity() {
         val avgBrightness = ((redSum + greenSum + blueSum) / (totalSamples * 3)).toInt()
         val colorVariety = colorSet.size.toDouble() / 100
 
-        val isOutdoor = skyRatio > 0.15 || (avgBrightness > 100 && roadRatio > 0.1)
-        val isIndoor = !isOutdoor && (brownRatio > 0.2 || colorVariety < 3)
+        // Use shared module for scene classification
+        val sharedSceneType = ImageAnalyzer.classifyScene(
+            skyRatio, roadRatio, greenRatio, brownRatio, avgBrightness, colorVariety
+        )
+        val isTrafficScene = sharedSceneType == SceneType.TRAFFIC
+        val isOutdoor = sharedSceneType == SceneType.OUTDOOR || sharedSceneType == SceneType.TRAFFIC || sharedSceneType == SceneType.NATURE
+        val isIndoor = sharedSceneType == SceneType.INDOOR || sharedSceneType == SceneType.INDOOR_HISTORIC
 
-        val isTrafficScene = (skyRatio > 0.1 || avgBrightness > 120) &&
-                            roadRatio > 0.08 &&
-                            brownRatio < 0.25 &&
-                            greenRatio < 0.4
+        // Use shared module for confidence calculation
+        val confidence = ImageAnalyzer.calculateConfidence(sharedSceneType, skyRatio, roadRatio)
 
-        val confidence = when {
-            isTrafficScene && skyRatio > 0.2 && roadRatio > 0.15 -> 0.9
-            isTrafficScene && roadRatio > 0.1 -> 0.7
-            isTrafficScene -> 0.5
-            else -> 0.3
-        }
-
-        val sceneType = when {
-            isTrafficScene -> "🚗 Traffic/Road Scene"
-            greenRatio > 0.3 -> "🌳 Nature/Park"
-            isIndoor && brownRatio > 0.2 -> "🏛️ Indoor (Historic Building)"
-            isIndoor -> "🏠 Indoor"
-            isOutdoor -> "🏙️ Outdoor (No Traffic)"
-            else -> "❓ Unknown"
-        }
+        val sceneType = "${sharedSceneType.emoji} ${sharedSceneType.description}"
 
         return SceneAnalysis(
             isTrafficScene = isTrafficScene,
@@ -474,22 +468,14 @@ class MainActivity : AppCompatActivity() {
         val reliabilityFactor = scene.confidence
         val adjustedVehicles = (vehicleBlobs * reliabilityFactor).toInt()
 
-        val trafficLevel = when {
-            adjustedVehicles >= 12 -> "VERY HIGH 🔴"
-            adjustedVehicles >= 6 -> "HIGH 🟠"
-            adjustedVehicles >= 3 -> "MEDIUM 🟡"
-            adjustedVehicles >= 1 -> "LOW 🟢"
-            else -> "EMPTY ⚪"
-        }
+        // Use shared module for traffic level determination
+        val sharedTrafficLevel = ImageAnalyzer.determineTrafficLevel(adjustedVehicles, true)
+        val trafficLevel = "${sharedTrafficLevel.description} ${sharedTrafficLevel.emoji}"
 
         val estimatedPeople = (roadEdgeDensity * 50 * reliabilityFactor).toInt()
-        val crowdLevel = when {
-            estimatedPeople >= 15 -> "VERY HIGH 🔴"
-            estimatedPeople >= 8 -> "HIGH 🟠"
-            estimatedPeople >= 4 -> "MEDIUM 🟡"
-            estimatedPeople >= 1 -> "LOW 🟢"
-            else -> "EMPTY ⚪"
-        }
+        // Use shared module for crowd level determination
+        val sharedCrowdLevel = ImageAnalyzer.determineCrowdLevel(estimatedPeople)
+        val crowdLevel = "${sharedCrowdLevel.description} ${sharedCrowdLevel.emoji}"
 
         val timestamp = java.text.SimpleDateFormat("MM/dd/yyyy HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
 
@@ -532,14 +518,9 @@ $timestamp | ${w}x${h}
 
         val estimatedPeople = countPeopleInScene(bitmap)
 
-        val crowdLevel = when {
-            estimatedPeople >= 30 -> "VERY HIGH 🔴"
-            estimatedPeople >= 15 -> "HIGH 🟠"
-            estimatedPeople >= 8 -> "MEDIUM 🟡"
-            estimatedPeople >= 3 -> "LOW 🟢"
-            estimatedPeople >= 1 -> "VERY LOW 🟢"
-            else -> "EMPTY ⚪"
-        }
+        // Use shared module for crowd level determination
+        val sharedCrowdLevel = ImageAnalyzer.determineCrowdLevel(estimatedPeople)
+        val crowdLevel = "${sharedCrowdLevel.description} ${sharedCrowdLevel.emoji}"
 
         val fullReport = """
 📊 CROWD ANALYSIS REPORT
@@ -585,12 +566,8 @@ $timestamp | ${w}x${h}
                 val g = Color.green(pixel)
                 val b = Color.blue(pixel)
 
-                val isSkinTone = (r > 95 && g > 40 && b > 20 &&
-                                  r > g && r > b &&
-                                  abs(r - g) > 15 &&
-                                  r - g < 100 && r - b < 100)
-
-                if (isSkinTone) skinTonePixels++
+                // Use shared module for skin tone detection
+                if (ImageAnalyzer.isSkinTone(r, g, b)) skinTonePixels++
             }
         }
 
@@ -677,16 +654,8 @@ $timestamp | ${w}x${h}
 
                 val diffFromRoad = abs(brightness - avgRoadBrightness)
 
-                val isVehicle = when {
-                    diffFromRoad < 25 -> false
-                    brightness > 200 && saturation < 30 && diffFromRoad > 40 -> true
-                    brightness < 45 && saturation < 20 && diffFromRoad > 30 -> true
-                    r > 140 && r > g + 50 && r > b + 50 -> true
-                    b > 120 && b > r + 40 && b > g + 20 -> true
-                    brightness in 150..200 && saturation < 25 && diffFromRoad > 35 -> true
-                    r > 180 && g > 120 && b < 100 && saturation > 60 -> true
-                    else -> false
-                }
+                // Use shared module for vehicle pixel detection
+                val isVehicle = ImageAnalyzer.isVehiclePixel(r, g, b, avgRoadBrightness)
 
                 mask[sy][sx] = isVehicle
             }
@@ -709,22 +678,18 @@ $timestamp | ${w}x${h}
         }
 
         var blobCount = 0
-        val minBlobSize = 8
-        val maxBlobSize = 80
 
         for (sy in 0 until scaledH) {
             for (sx in 0 until scaledW) {
                 if (cleanMask[sy][sx] && !visited[sy][sx]) {
                     val (blobSize, bounds) = floodFillWithBounds(cleanMask, visited, sx, sy, scaledW, scaledH)
 
-                    if (blobSize in minBlobSize..maxBlobSize) {
-                        val blobWidth = bounds[2] - bounds[0] + 1
-                        val blobHeight = bounds[3] - bounds[1] + 1
-                        val aspectRatio = if (blobHeight > 0) blobWidth.toFloat() / blobHeight else 0f
+                    val blobWidth = bounds[2] - bounds[0] + 1
+                    val blobHeight = bounds[3] - bounds[1] + 1
 
-                        if (aspectRatio in 0.3f..5f && blobWidth >= 2 && blobHeight >= 2) {
-                            blobCount++
-                        }
+                    // Use shared module for blob validation
+                    if (ImageAnalyzer.isValidVehicleBlob(blobSize, blobWidth, blobHeight)) {
+                        blobCount++
                     }
                 }
             }
