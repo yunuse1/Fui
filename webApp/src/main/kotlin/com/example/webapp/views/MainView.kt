@@ -264,7 +264,7 @@ class MainView : VerticalLayout() {
         footer.style.set("color", "#666666")
         footer.style.set("font-size", "12px")
 
-        footer.text = "🔒 Data processed on device, not sent to server | KotlinConf 2025 Project"
+        footer.text = "🔒 Data processed on device, not sent to server | KotlinConf 2026 Project"
         return footer
     }
 
@@ -290,21 +290,23 @@ class MainView : VerticalLayout() {
             // Add a prominent remove button on top right corner
             val removeBtn = Button("✕") { clearAll() }
             removeBtn.style.set("position", "absolute")
-            removeBtn.style.set("top", "8px")
-            removeBtn.style.set("right", "8px")
-            removeBtn.style.set("width", "40px")
-            removeBtn.style.set("height", "40px")
-            removeBtn.style.set("min-width", "40px")
+            removeBtn.style.set("top", "10px")
+            removeBtn.style.set("right", "10px")
+            removeBtn.style.set("width", "48px")
+            removeBtn.style.set("height", "48px")
+            removeBtn.style.set("min-width", "48px")
             removeBtn.style.set("padding", "0")
             removeBtn.style.set("background", "#f44336")
             removeBtn.style.set("color", "white")
-            removeBtn.style.set("border", "none")
-            removeBtn.style.set("border-radius", "8px")
-            removeBtn.style.set("font-size", "20px")
+            removeBtn.style.set("border", "3px solid white")
+            removeBtn.style.set("border-radius", "50%")
+            removeBtn.style.set("font-size", "28px")
             removeBtn.style.set("font-weight", "bold")
             removeBtn.style.set("cursor", "pointer")
-            removeBtn.style.set("box-shadow", "0 2px 8px rgba(0,0,0,0.3)")
+            removeBtn.style.set("box-shadow", "0 4px 12px rgba(0,0,0,0.5)")
             removeBtn.style.set("z-index", "10")
+            removeBtn.style.set("line-height", "1")
+            removeBtn.style.set("transition", "transform 0.2s, box-shadow 0.2s")
             removeBtn.element.setAttribute("title", "Remove image")
 
             wrapper.add(image, removeBtn)
@@ -330,14 +332,14 @@ class MainView : VerticalLayout() {
         fileNameSpan.style.set("font-weight", "bold")
         fileNameSpan.style.set("font-size", "14px")
 
-        // Big red remove button
+        // Big red remove button with more prominence
         val removeButton = Button("✕ Remove") { clearAll() }
         removeButton.style.set("background", "#f44336")
         removeButton.style.set("color", "white")
-        removeButton.style.set("border", "none")
-        removeButton.style.set("border-radius", "6px")
-        removeButton.style.set("padding", "8px 16px")
-        removeButton.style.set("font-size", "14px")
+        removeButton.style.set("border", "2px solid #ff6659")
+        removeButton.style.set("border-radius", "8px")
+        removeButton.style.set("padding", "10px 20px")
+        removeButton.style.set("font-size", "16px")
         removeButton.style.set("font-weight", "bold")
         removeButton.style.set("cursor", "pointer")
         removeButton.style.set("min-width", "100px")

@@ -2,9 +2,12 @@
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
+.idea/
+*.iml
 
 ### Kotlin ###
-.kotlin
+.kotlin/
+*.kotlin_module
 
 ### Eclipse ###
 .apt_generated
@@ -30,3 +33,50 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+.AppleDouble
+.LSOverride
+
+### Windows ###
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+### Gradle ###
+.gradle/
+build/
+**/build/
+!gradle-wrapper.jar
+
+### Local files ###
+local.properties
+*.log
+*.tmp
+*.temp
+
+### Data directory ###
+data/
+
+### Android ###
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+.externalNativeBuild/
+.cxx/
+google-services.json
+
+### Vaadin ###
+node_modules/
+package-lock.json
+webpack.generated.js
+pnpm-lock.yaml
+vite.generated.ts
+**/frontend/generated/
+
+### Kotlin Multiplatform ###
+*.xcuserstate
+*.xcworkspace
+Pods/
+.konan/
+
